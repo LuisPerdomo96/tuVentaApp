@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { QrCode } from 'lucide-react'
+import { CreditCard } from 'lucide-react'
 import { 
   LayoutDashboard, 
   Package, 
@@ -256,6 +257,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: '/dashboard/settings', label: 'Config. de Empresa', icon: Settings },
         { href: '/dashboard/qr', label: 'Códigos QR', icon: QrCode },
         { href: '/dashboard/orders', label: 'Pedidos', icon: ShoppingCart, badge: pendingOrdersCount > 0 ? pendingOrdersCount : undefined },
+        { href: '/dashboard/payments', label: 'Métodos de Pago', icon: CreditCard },
       ]
     },
     {

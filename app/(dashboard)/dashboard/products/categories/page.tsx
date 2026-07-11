@@ -6,16 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { 
-  ArrowLeft, 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Package, 
-  Loader2,
-  X,
-  Check
-} from 'lucide-react'
+import { ArrowLeft, Plus, Edit2, Trash2, Package, Loader2, X, Check } from 'lucide-react'
 import Link from 'next/link'
 
 interface Category {
@@ -55,15 +46,9 @@ export default function CategoriesPage() {
 
     if (!company) return
 
-    // Cargar categorías con conteo de productos
     const { data: categoriesData } = await supabase
       .from('categories')
-      .select(`
-        *,
-        products (
-          id
-        )
-      `)
+      .select(`*, products (id)`)
       .eq('company_id', company.id)
       .order('name')
 
@@ -94,7 +79,6 @@ export default function CategoriesPage() {
     if (!company) return
 
     if (editingCategory) {
-      // Actualizar
       const { error } = await supabase
         .from('categories')
         .update({
@@ -111,7 +95,6 @@ export default function CategoriesPage() {
         alert('✅ Categoría actualizada')
       }
     } else {
-      // Crear nueva
       const { error } = await supabase
         .from('categories')
         .insert({
