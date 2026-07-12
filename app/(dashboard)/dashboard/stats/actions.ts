@@ -28,16 +28,25 @@ export async function getSalesStats(period: '7days' | '30days' | '3months' = '7d
     startDate.setMonth(now.getMonth() - 3)
   }
 
-  // Obtener pedidos aprobados o entregados (solo los pagados)
+  // ✅ CORRECCIÓN: Incluir TODOS los estados relevantes (no solo los pagados)
   const { data: orders } = await supabase
     .from('orders')
-    .select('total_usd, status, created_at')
+    .select('id, total_usd, status, created_at')
     .eq('company_id', company.id)
-    .in('status', ['payment_approved', 'in_preparation', 'ready', 'delivered'])
+    .in('status', [
+      'payment_approved', 
+      'in_preparation', 
+      'ready', 
+      'delivered',
+      'installment_active',
+      'installment_completed'
+    ])
     .gte('created_at', startDate.toISOString())
     .order('created_at', { ascending: true })
 
-  if (!orders) return { error: 'Error al obtener datos' }
+  console.log('📊 Pedidos encontrados:', orders?.length || 0)
+
+  if (!orders) return { error: 'Error al obtener datos', stats: null }
 
   // Calcular estadísticas
   const totalRevenue = orders.reduce((sum, order) => sum + order.total_usd, 0)
@@ -54,26 +63,47 @@ export async function getSalesStats(period: '7days' | '30days' | '3months' = '7d
     salesByDay[date] = (salesByDay[date] || 0) + order.total_usd
   })
 
-  // Productos más vendidos
-  const { data: orderItems } = await supabase
-    .from('order_items')
-    .select('product_name, quantity, price_usd')
-    .in('order_id', orders.map(o => o.id))
+  // ✅ CORRECCIÓN: Obtener IDs de los pedidos
+  const orderIds = orders.map(o => o.id)
+  
+  console.log('🔍 Buscando order_items para pedidos:', orderIds)
 
+  // ✅ CORRECCIÓN: Obtener order_items con los IDs correctos
+  const { data: orderItems, error: itemsError } = await supabase
+    .from('order_items')
+    .select('product_name, quantity, price_usd, order_id')
+    .in('order_id', orderIds)
+
+  if (itemsError) {
+    console.error('❌ Error obteniendo order_items:', itemsError)
+  }
+
+  console.log('📦 Order items encontrados:', orderItems?.length || 0)
+
+  // ✅ CORRECCIÓN: Calcular productos más vendidos
   const productSales: any = {}
   orderItems?.forEach(item => {
-    productSales[item.product_name] = (productSales[item.product_name] || 0) + item.quantity
+    if (!productSales[item.product_name]) {
+      productSales[item.product_name] = {
+        name: item.product_name,
+        quantity: 0,
+        revenue: 0
+      }
+    }
+    productSales[item.product_name].quantity += item.quantity
+    productSales[item.product_name].revenue += item.quantity * item.price_usd
   })
 
-  const topProducts = Object.entries(productSales)
-    .map(([name, quantity]) => ({ name, quantity: quantity as number }))
-    .sort((a, b) => b.quantity - a.quantity)
-    .slice(0, 5)
+  const topProducts = Object.values(productSales)
+    .sort((a: any, b: any) => b.quantity - a.quantity)
+    .slice(0, 10)
 
-  // Pedidos por estado
+  console.log('🏆 Top productos:', topProducts)
+
+  // Pedidos por estado (TODOS los pedidos, no solo los pagados)
   const { data: allOrders } = await supabase
     .from('orders')
-    .select('status')
+    .select('status, total_usd')
     .eq('company_id', company.id)
     .gte('created_at', startDate.toISOString())
 
@@ -84,6 +114,8 @@ export async function getSalesStats(period: '7days' | '30days' | '3months' = '7d
     in_preparation: allOrders?.filter(o => o.status === 'in_preparation').length || 0,
     ready: allOrders?.filter(o => o.status === 'ready').length || 0,
     delivered: allOrders?.filter(o => o.status === 'delivered').length || 0,
+    installment_active: allOrders?.filter(o => o.status === 'installment_active').length || 0,
+    installment_completed: allOrders?.filter(o => o.status === 'installment_completed').length || 0,
   }
 
   return {

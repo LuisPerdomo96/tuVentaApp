@@ -38,7 +38,6 @@ export default function OrderDetailPage() {
     loadOrderDetail()
   }, [orderId])
 
-  // 🔔 SUSCRIPCIÓN EN TIEMPO REAL - Auto-actualiza el detalle del pedido
   useEffect(() => {
     if (!orderId) return
 
@@ -55,7 +54,6 @@ export default function OrderDetailPage() {
           filter: `id=eq.${orderId}`,
         },
         () => {
-          // Recargar el detalle cuando haya cambios
           loadOrderDetail()
         }
       )
@@ -121,14 +119,16 @@ export default function OrderDetailPage() {
     }
 
     const config: any = {
-      pending_payment: { label: 'Pendiente de Pago', color: 'bg-gray-100 text-gray-800 border-gray-300' },
-      payment_review: { label: 'Pago en Revisión', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
+      pending_payment: { label: '⏳ Pendiente de Pago', color: 'bg-gray-100 text-gray-800 border-gray-300' },
+      payment_review: { label: '🔍 Pago en Revisión', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
       payment_approved: { label: '✅ Pago Aprobado', color: 'bg-green-100 text-green-800 border-green-300' },
       payment_rejected: { label: '❌ Pago Rechazado', color: 'bg-red-100 text-red-800 border-red-300' },
-      in_preparation: { label: 'En Preparación', color: 'bg-blue-100 text-blue-800 border-blue-300' },
-      ready: { label: 'Listo', color: 'bg-purple-100 text-purple-800 border-purple-300' },
-      delivered: { label: '✅ Entregado', color: 'bg-green-100 text-green-800 border-green-300' },
+      in_preparation: { label: '🔧 En Preparación', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+      ready: { label: '📦 Listo', color: 'bg-purple-100 text-purple-800 border-purple-300' },
+      delivered: { label: '🚚 Entregado', color: 'bg-green-100 text-green-800 border-green-300' },
       cancelled: { label: '❌ Cancelado', color: 'bg-red-100 text-red-800 border-red-300' },
+      installment_active: { label: '💳 Apartado Activo', color: 'bg-purple-100 text-purple-800 border-purple-300' },
+      installment_completed: { label: '✅ Apartado Completado', color: 'bg-green-100 text-green-800 border-green-300' },
     }
     const c = config[status] || config.pending_payment
     return <Badge className={`${c.color} px-3 py-1`}>{c.label}</Badge>
@@ -142,16 +142,6 @@ export default function OrderDetailPage() {
     if (order.delivery_type === 'installment') return '💳 Apartado (Pago por cuotas)'
     return order.delivery_type
   }
-
-  const orderTimeline = [
-    { status: 'payment_review', label: 'Revisión', icon: AlertCircle },
-    { status: 'payment_approved', label: 'Aprobado', icon: CheckCircle2 },
-    { status: 'in_preparation', label: 'Preparación', icon: Package },
-    { status: 'ready', label: 'Listo', icon: CheckCircle },
-    { status: 'delivered', label: 'Entregado', icon: Truck },
-  ]
-
-  const currentIndex = orderTimeline.findIndex(t => t.status === order?.status)
 
   if (loading) {
     return (
@@ -171,6 +161,17 @@ export default function OrderDetailPage() {
       </div>
     )
   }
+
+  // Timeline con todos los estados
+  const allStatuses = [
+    { status: 'pending_payment', label: 'Pendiente', icon: Clock },
+    { status: 'payment_approved', label: 'Aprobado', icon: CheckCircle2 },
+    { status: 'in_preparation', label: 'En Proceso', icon: Package },
+    { status: 'ready', label: 'Listo', icon: CheckCircle },
+    { status: 'delivered', label: 'Entregado', icon: Truck },
+  ]
+
+  const currentIndex = allStatuses.findIndex(s => s.status === order.status)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -192,45 +193,82 @@ export default function OrderDetailPage() {
               </p>
             </div>
           </div>
-          {getStatusBadge(order.status, order.payment_type, order.remaining_balance)}
+          {getStatusBadge(order.status, order.payment_type, order.pending_amount || order.remaining_balance)}
         </div>
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
         
-        {/* Línea de Tiempo */}
-        <Card className="bg-gray-50">
+        {/* Línea de Tiempo con Dropdown */}
+        <Card className="bg-gradient-to-r from-gray-50 to-white shadow-md">
           <CardHeader>
-            <CardTitle className="text-base">📊 Progreso del Pedido</CardTitle>
+            <CardTitle className="text-base flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                📊 Progreso del Pedido
+              </span>
+              <select
+                value={order.status}
+                onChange={(e) => handleStatusChange(e.target.value)}
+                disabled={updating}
+                className="px-4 py-2 border-2 rounded-lg text-sm font-semibold bg-white disabled:opacity-50 cursor-pointer hover:border-orange-400 transition-colors"
+              >
+                <option value="pending_payment">⏳ Pendiente de Pago</option>
+                <option value="payment_review">🔍 En Revisión</option>
+                <option value="payment_approved">✅ Pago Aprobado</option>
+                <option value="installment_active">💳 Apartado Activo</option>
+                <option value="in_preparation">🔧 En Preparación</option>
+                <option value="ready">📦 Listo</option>
+                <option value="delivered">🚚 Entregado</option>
+                <option value="installment_completed">✅ Apartado Completado</option>
+                <option value="cancelled">❌ Cancelado</option>
+              </select>
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between overflow-x-auto">
-              {orderTimeline.map((step, idx) => {
+            <div className="flex items-center justify-between overflow-x-auto pb-2">
+              {allStatuses.map((step, idx) => {
                 const StepIcon = step.icon
-                const isCompleted = idx <= currentIndex
+                const isCompleted = idx <= currentIndex && currentIndex !== -1
                 
                 return (
                   <div key={step.status} className="flex items-center flex-1 min-w-0">
-                    <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 shrink-0 ${
+                    <div className={`flex items-center justify-center w-12 h-12 rounded-full border-3 shrink-0 transition-all ${
                       isCompleted 
-                        ? 'bg-green-500 border-green-500 text-white' 
+                        ? 'bg-green-500 border-green-500 text-white scale-110 shadow-lg' 
                         : 'bg-white border-gray-300 text-gray-400'
                     }`}>
-                      <StepIcon className="w-5 h-5" />
+                      <StepIcon className="w-6 h-6" />
                     </div>
-                    <span className={`ml-2 text-sm font-medium whitespace-nowrap ${
+                    <span className={`ml-2 text-sm font-semibold whitespace-nowrap ${
                       isCompleted ? 'text-green-700' : 'text-gray-500'
                     }`}>
                       {step.label}
                     </span>
-                    {idx < orderTimeline.length - 1 && (
-                      <div className={`flex-1 h-1 mx-2 ${
+                    {idx < allStatuses.length - 1 && (
+                      <div className={`flex-1 h-2 mx-2 rounded-full ${
                         isCompleted ? 'bg-green-500' : 'bg-gray-300'
                       }`} />
                     )}
                   </div>
                 )
               })}
+            </div>
+            
+            {/* Estado actual destacado */}
+            <div className="mt-6 p-4 bg-white rounded-lg border-2 shadow-md" style={{ 
+              borderColor: order.status === 'delivered' ? '#22c55e' : 
+                         order.status === 'cancelled' ? '#ef4444' : 
+                         order.status.includes('installment') ? '#a855f7' : '#f97316'
+            }}>
+              <p className="text-sm text-gray-600 mb-1">Estado actual:</p>
+              <div className="flex items-center gap-2">
+                {getStatusBadge(order.status, order.payment_type, order.pending_amount || order.remaining_balance)}
+                {order.payment_type === 'installment' && (
+                  <span className="text-sm text-gray-600 ml-2">
+                    ({((order.paid_amount || 0) / order.total_usd * 100).toFixed(0)}% pagado)
+                  </span>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -274,97 +312,6 @@ export default function OrderDetailPage() {
                     <XCircle className="w-5 h-5 mr-2" />
                     Rechazar
                   </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {order.status === 'payment_approved' && order.payment_type !== 'installment' && (
-          <Card className="border-l-4 border-l-green-500 bg-green-50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-8 h-8 text-green-600" />
-                <div>
-                  <p className="font-bold text-green-900 text-lg">✅ Pago Aprobado</p>
-                  <p className="text-green-700">
-                    El pago ha sido verificado. Ahora puedes iniciar la preparación del pedido.
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  className="ml-auto bg-blue-600 hover:bg-blue-700 text-white"
-                  onClick={() => handleStatusChange('in_preparation')}
-                  disabled={updating}
-                >
-                  <Package className="w-4 h-4 mr-2" />
-                  Iniciar Preparación
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {order.status === 'in_preparation' && (
-          <Card className="border-l-4 border-l-blue-500 bg-blue-50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Package className="w-8 h-8 text-blue-600" />
-                <div>
-                  <p className="font-bold text-blue-900 text-lg">🔧 En Preparación</p>
-                  <p className="text-blue-700">
-                    El pedido está siendo preparado. Marca como listo cuando termine.
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  className="ml-auto bg-purple-600 hover:bg-purple-700 text-white"
-                  onClick={() => handleStatusChange('ready')}
-                  disabled={updating}
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Marcar Listo
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {order.status === 'ready' && (
-          <Card className="border-l-4 border-l-purple-500 bg-purple-50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <CheckCircle className="w-8 h-8 text-purple-600" />
-                <div>
-                  <p className="font-bold text-purple-900 text-lg">✅ Listo para Entregar</p>
-                  <p className="text-purple-700">
-                    El pedido está listo. Confirma cuando sea entregado.
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  className="ml-auto bg-green-600 hover:bg-green-700 text-white"
-                  onClick={() => handleStatusChange('delivered')}
-                  disabled={updating}
-                >
-                  <Truck className="w-4 h-4 mr-2" />
-                  Marcar Entregado
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {order.status === 'delivered' && (
-          <Card className="border-l-4 border-l-green-500 bg-green-50">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Truck className="w-8 h-8 text-green-600" />
-                <div>
-                  <p className="font-bold text-green-900 text-lg">🎉 Pedido Entregado</p>
-                  <p className="text-green-700">
-                    El pedido ha sido entregado exitosamente al cliente.
-                  </p>
                 </div>
               </div>
             </CardContent>
@@ -522,7 +469,7 @@ export default function OrderDetailPage() {
   )
 }
 
-// ✅ COMPONENTE DE APARTADO
+// Componente de Apartado (igual que antes)
 function InstallmentSection({ orderId, order, onStatusChange }: any) {
   const [amount, setAmount] = useState('')
   const [reference, setReference] = useState('')
@@ -576,8 +523,9 @@ function InstallmentSection({ orderId, order, onStatusChange }: any) {
     }
   }
 
-  const totalPaid = (order.initial_payment || 0) + (order.installments_paid || 0)
-  const percentPaid = order.total_usd > 0 ? (totalPaid / order.total_usd) * 100 : 0
+  const paidAmount = order.paid_amount || order.initial_payment || 0
+  const pendingAmount = order.pending_amount || order.remaining_balance || 0
+  const percentPaid = order.total_usd > 0 ? (paidAmount / order.total_usd) * 100 : 0
 
   return (
     <Card className="border-l-4 border-l-purple-500">
@@ -590,12 +538,12 @@ function InstallmentSection({ orderId, order, onStatusChange }: any) {
         <div>
           <div className="flex justify-between text-sm mb-2">
             <span className="text-gray-600">Progreso del pago</span>
-            <span className="font-bold">{percentPaid.toFixed(0)}%</span>
+            <span className="font-bold">{Math.min(percentPaid, 100).toFixed(0)}%</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
             <div
               className="bg-gradient-to-r from-purple-500 to-purple-600 h-full rounded-full transition-all duration-500"
-              style={{ width: `${percentPaid}%` }}
+              style={{ width: `${Math.min(percentPaid, 100)}%` }}
             />
           </div>
         </div>
@@ -611,11 +559,11 @@ function InstallmentSection({ orderId, order, onStatusChange }: any) {
           </div>
           <div className="bg-blue-50 rounded-lg p-3">
             <p className="text-xs text-gray-600">Pagado</p>
-            <p className="text-lg font-bold text-blue-600">${(order.installments_paid || 0).toFixed(2)}</p>
+            <p className="text-lg font-bold text-blue-600">${paidAmount.toFixed(2)}</p>
           </div>
           <div className="bg-red-50 rounded-lg p-3">
             <p className="text-xs text-gray-600">Pendiente</p>
-            <p className="text-lg font-bold text-red-600">${(order.remaining_balance || 0).toFixed(2)}</p>
+            <p className="text-lg font-bold text-red-600">${pendingAmount.toFixed(2)}</p>
           </div>
         </div>
 
@@ -628,7 +576,7 @@ function InstallmentSection({ orderId, order, onStatusChange }: any) {
                   <div>
                     <p className="font-medium">${inst.amount.toFixed(2)}</p>
                     <p className="text-xs text-gray-500">
-                      {new Date(inst.paid_at).toLocaleDateString('es-VE')}
+                      {new Date(inst.created_at).toLocaleDateString('es-VE')}
                       {inst.payment_reference && ` • Ref: ${inst.payment_reference}`}
                     </p>
                   </div>
@@ -641,7 +589,7 @@ function InstallmentSection({ orderId, order, onStatusChange }: any) {
           </div>
         )}
 
-        {order.remaining_balance > 0 && (
+        {pendingAmount > 0 && (
           <>
             <Button
               onClick={() => setShowForm(!showForm)}
@@ -659,14 +607,14 @@ function InstallmentSection({ orderId, order, onStatusChange }: any) {
                     type="number"
                     step="0.01"
                     min="0.01"
-                    max={order.remaining_balance}
+                    max={pendingAmount}
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     className="w-full px-3 py-2 border rounded-lg mt-1"
                     required
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Máximo: ${order.remaining_balance.toFixed(2)}
+                    Máximo: ${pendingAmount.toFixed(2)}
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -718,7 +666,7 @@ function InstallmentSection({ orderId, order, onStatusChange }: any) {
           </>
         )}
 
-        {order.remaining_balance <= 0 && (
+        {pendingAmount <= 0 && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
             <p className="text-green-800 font-semibold">✅ Pago Completado</p>
             <p className="text-sm text-green-700">El producto puede ser entregado</p>

@@ -177,18 +177,18 @@ export default function PublicCatalogPage() {
   }
 
   function addToCart(product: Product) {
-    const existingItem = cart.find(item => item.product.id === product.id)
-    if (existingItem) {
-      setCart(cart.map(item =>
-        item.product.id === product.id
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      ))
-    } else {
-      setCart([...cart, { product, quantity: 1 }])
-      setShowCart(true)
-    }
+  const existingItem = cart.find(item => item.product.id === product.id)
+  if (existingItem) {
+    setCart(cart.map(item =>
+      item.product.id === product.id
+        ? { ...item, quantity: item.quantity + 1 }
+        : item
+    ))
+  } else {
+    setCart([...cart, { product, quantity: 1 }])
+    // ❌ ELIMINA ESTA LÍNEA: setShowCart(true)
   }
+}
 
   function removeFromCart(productId: string) {
     const existingItem = cart.find(item => item.product.id === productId)

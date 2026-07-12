@@ -9,7 +9,6 @@ export async function updateOrderStatus(orderId: string, newStatus: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'No autorizado' }
 
-  // Verificar que el pedido pertenezca a la empresa del usuario
   const { data: order } = await supabase
     .from('orders')
     .select('company_id')
@@ -27,7 +26,6 @@ export async function updateOrderStatus(orderId: string, newStatus: string) {
 
   if (!company) return { error: 'No tienes acceso a este pedido' }
 
-  // Actualizar estado
   const { error } = await supabase
     .from('orders')
     .update({ status: newStatus })
@@ -73,7 +71,6 @@ export async function getOrders(filters?: {
     .eq('company_id', company.id)
     .order('created_at', { ascending: false })
 
-  // Aplicar filtros
   if (filters?.status && filters.status !== 'all') {
     query = query.eq('status', filters.status)
   }
@@ -92,7 +89,6 @@ export async function getOrders(filters?: {
     return { error: error.message, data: [] }
   }
 
-  // Filtrar por búsqueda en cliente
   let filteredData = data || []
   if (filters?.search) {
     const searchLower = filters.search.toLowerCase()
@@ -120,7 +116,6 @@ export async function getOrderStats() {
 
   if (!company) return { error: 'Empresa no encontrada' }
 
-  // Obtener TODOS los pedidos
   const { data: allOrders, error } = await supabase
     .from('orders')
     .select('status')
@@ -130,7 +125,6 @@ export async function getOrderStats() {
     return { error: error.message, stats: {} }
   }
 
-  // Contar por estado
   const stats = {
     total: allOrders?.length || 0,
     pending: allOrders?.filter(o => o.status === 'pending_payment').length || 0,
@@ -140,7 +134,105 @@ export async function getOrderStats() {
     ready: allOrders?.filter(o => o.status === 'ready').length || 0,
     delivered: allOrders?.filter(o => o.status === 'delivered').length || 0,
     cancelled: allOrders?.filter(o => o.status === 'cancelled').length || 0,
+    installment_active: allOrders?.filter(o => o.status === 'installment_active').length || 0,
+    installment_completed: allOrders?.filter(o => o.status === 'installment_completed').length || 0,
   }
 
   return { success: true, stats }
+}
+
+// ✅ NUEVA: Historial de apartados
+export async function getInstallmentHistory(orderId: string) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autorizado', data: [] }
+
+  const { data: payments, error } = await supabase
+    .from('order_payments')
+    .select('*')
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error obteniendo historial:', error)
+    return { error: error.message, data: [] }
+  }
+
+  return { success: true, data: payments || [] }
+}
+
+// ✅ NUEVA: Registrar pago de apartado
+export async function registerInstallmentPayment(
+  orderId: string,
+  amount: number,
+  reference: string,
+  method: string,
+  notes: string
+) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autorizado' }
+
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('id', orderId)
+    .single()
+
+  if (orderError || !order) {
+    return { error: 'Pedido no encontrado' }
+  }
+
+  const currentPaid = order.paid_amount || order.initial_payment || 0
+  const newPaidAmount = currentPaid + amount
+  const newRemainingBalance = Math.max(0, order.total_usd - newPaidAmount)
+
+  let newStatus = order.status
+  if (newRemainingBalance <= 0) {
+    newStatus = 'installment_completed'
+  } else if (order.status !== 'installment_active') {
+    newStatus = 'installment_active'
+  }
+
+  const { error: paymentError } = await supabase
+    .from('order_payments')
+    .insert({
+      order_id: orderId,
+      amount: amount,
+      payment_method: method,
+      payment_reference: reference || null,
+      notes: notes || null,
+      created_by: user.id,
+    })
+
+  if (paymentError) {
+    return { error: paymentError.message }
+  }
+
+  const { error: updateError } = await supabase
+    .from('orders')
+    .update({
+      paid_amount: newPaidAmount,
+      pending_amount: newRemainingBalance,
+      remaining_balance: newRemainingBalance,
+      status: newStatus,
+      last_payment_date: new Date().toISOString(),
+      installments_paid: (order.installments_paid || 0) + 1,
+    })
+    .eq('id', orderId)
+
+  if (updateError) {
+    return { error: updateError.message }
+  }
+
+  revalidatePath('/dashboard/orders')
+  revalidatePath('/dashboard/customers')
+
+  return { 
+    success: true, 
+    isFullyPaid: newRemainingBalance <= 0,
+    newRemainingBalance 
+  }
 }

@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { getCustomers } from './actions'
+import { getCustomers, registerPayment, getOrderPayments } from './actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { 
@@ -14,7 +15,13 @@ import {
   Loader2,
   Phone,
   ShoppingBag,
-  TrendingUp
+  TrendingUp,
+  CreditCard,
+  X,
+  Upload,
+  CheckCircle,
+  Clock,
+  AlertCircle
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -27,6 +34,17 @@ export default function CustomersPage() {
     totalCustomers: 0,
     totalRevenue: 0,
     averageSpent: 0,
+  })
+
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState<any>(null)
+  const [registering, setRegistering] = useState(false)
+  const [paymentForm, setPaymentForm] = useState({
+    amount: '',
+    paymentMethod: 'pago_movil',
+    paymentReference: '',
+    paymentScreenshotUrl: '',
+    notes: '',
   })
 
   useEffect(() => {
@@ -60,6 +78,37 @@ export default function CustomersPage() {
 
   const customersWithDebt = customers.filter(c => c.activeInstallments > 0).length
 
+  async function handleRegisterPayment(e: React.FormEvent) {
+    e.preventDefault()
+    setRegistering(true)
+
+    const formData = new FormData()
+    formData.append('orderId', selectedOrder.id)
+    formData.append('amount', paymentForm.amount)
+    formData.append('paymentMethod', paymentForm.paymentMethod)
+    formData.append('paymentReference', paymentForm.paymentReference)
+    formData.append('paymentScreenshotUrl', paymentForm.paymentScreenshotUrl)
+    formData.append('notes', paymentForm.notes)
+
+    const result = await registerPayment(formData)
+    setRegistering(false)
+
+    if (result.error) {
+      alert('Error: ' + result.error)
+    } else {
+      alert('✅ Abono registrado correctamente')
+      setShowPaymentModal(false)
+      setPaymentForm({
+        amount: '',
+        paymentMethod: 'pago_movil',
+        paymentReference: '',
+        paymentScreenshotUrl: '',
+        notes: '',
+      })
+      loadData()
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -80,7 +129,7 @@ export default function CustomersPage() {
           </Link>
           <div className="flex-1">
             <h1 className="text-xl font-bold text-gray-900">Clientes</h1>
-            <p className="text-sm text-gray-600">Gestiona tu base de clientes</p>
+            <p className="text-sm text-gray-600">Gestiona tu base de clientes y apartados</p>
           </div>
         </div>
       </header>
@@ -88,7 +137,7 @@ export default function CustomersPage() {
       <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -128,6 +177,20 @@ export default function CustomersPage() {
               </div>
             </CardContent>
           </Card>
+
+          <Card className={customersWithDebt > 0 ? 'border-2 border-red-300 bg-red-50' : ''}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 mb-1">Con Deuda</p>
+                  <p className={`text-3xl font-bold ${customersWithDebt > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                    {customersWithDebt}
+                  </p>
+                </div>
+                <AlertCircle className={`w-10 h-10 ${customersWithDebt > 0 ? 'text-red-500' : 'text-gray-400'}`} />
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Búsqueda y Filtros */}
@@ -143,22 +206,21 @@ export default function CustomersPage() {
               />
             </div>
             
-            {/* Filtros */}
             <div className="flex gap-2 flex-wrap">
               <Button
                 variant={filterType === 'all' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilterType('all')}
               >
-                Todos los clientes ({customers.length})
+                Todos ({customers.length})
               </Button>
               <Button
                 variant={filterType === 'with_debt' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilterType('with_debt')}
-                className={`${customersWithDebt > 0 ? 'bg-red-500 hover:bg-red-600 text-white' : ''}`}
+                className={customersWithDebt > 0 ? 'bg-red-500 hover:bg-red-600 text-white' : ''}
               >
-                💳 Con deuda ({customersWithDebt})
+                💳 Con Deuda ({customersWithDebt})
               </Button>
             </div>
           </CardContent>
@@ -182,56 +244,86 @@ export default function CustomersPage() {
         ) : (
           <div className="space-y-3">
             {filteredCustomers.map((customer, index) => (
-              <Card key={customer.phone} className={`hover:shadow-md transition-shadow ${
-                customer.activeInstallments > 0 ? 'border-red-300 border-2' : ''
-              }`}>
-                <CardContent className="p-4">
+              <Card 
+                key={customer.phone} 
+                className={`hover:shadow-lg transition-all ${
+                  customer.activeInstallments > 0 
+                    ? 'border-2 border-red-400 bg-gradient-to-r from-white to-red-50' 
+                    : ''
+                }`}
+              >
+                <CardContent className="p-5">
                   <div className="flex items-center justify-between flex-wrap gap-4">
                     <div className="flex items-center gap-4 flex-1">
-                      {/* Avatar */}
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg ${
-                        index === 0 ? 'bg-yellow-500' :
-                        index === 1 ? 'bg-gray-400' :
-                        index === 2 ? 'bg-orange-600' :
-                        'bg-blue-500'
-                      }`}>
-                        {customer.name.charAt(0).toUpperCase()}
+                      {/* Avatar con indicador de deuda */}
+                      <div className="relative">
+                        <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-2xl shadow-lg ${
+                          customer.activeInstallments > 0 ? 'bg-red-500' :
+                          index === 0 ? 'bg-yellow-500' :
+                          index === 1 ? 'bg-gray-400' :
+                          index === 2 ? 'bg-orange-600' :
+                          'bg-blue-500'
+                        }`}>
+                          {customer.name.charAt(0).toUpperCase()}
+                        </div>
+                        {customer.activeInstallments > 0 && (
+                          <div className="absolute -top-2 -right-2 w-8 h-8 bg-red-600 rounded-full flex items-center justify-center text-white text-sm font-bold border-3 border-white animate-pulse shadow-lg">
+                            💳
+                          </div>
+                        )}
                       </div>
                       
                       <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-gray-900">{customer.name}</h3>
-                          {index < 3 && customersWithDebt === 0 && (
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <h3 className="font-bold text-gray-900 text-xl">{customer.name}</h3>
+                          {customer.activeInstallments > 0 && (
+                            <Badge className="bg-red-500 text-white px-3 py-1 text-sm font-bold animate-pulse shadow-md">
+                              💳 DEBE
+                            </Badge>
+                          )}
+                          {index < 3 && customer.activeInstallments === 0 && (
                             <Badge className="bg-yellow-100 text-yellow-800">
                               {index === 0 ? '🥇 Top' : index === 1 ? '🥈' : '🥉'}
                             </Badge>
                           )}
-                          {customer.activeInstallments > 0 && (
-                            <Badge className="bg-red-100 text-red-800">
-                              💳 Debe
-                            </Badge>
-                          )}
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
+                        <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
                           <span className="flex items-center gap-1">
-                            <Phone className="w-3 h-3" />
+                            <Phone className="w-4 h-4" />
                             {customer.phone}
                           </span>
                           <span className="flex items-center gap-1">
-                            <ShoppingBag className="w-3 h-3" />
+                            <ShoppingBag className="w-4 h-4" />
                             {customer.totalOrders} pedidos
                           </span>
                         </div>
 
-                        {/* Badge de deuda si tiene apartados activos */}
+                        {/* Badge de deuda destacado */}
                         {customer.activeInstallments > 0 && (
-                          <div className="mt-2 p-2 bg-red-50 rounded border border-red-200">
-                            <p className="text-xs text-red-800 font-medium">
-                              💳 {customer.activeInstallments} apartado(s) activo(s)
-                            </p>
-                            <p className="text-sm text-red-600 font-bold">
-                              Total pendiente: ${customer.totalPending?.toFixed(2) || '0.00'}
-                            </p>
+                          <div className="mt-3 p-4 bg-gradient-to-r from-red-50 to-orange-50 rounded-lg border-2 border-red-300 shadow-md">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="text-sm text-red-800 font-semibold flex items-center gap-2">
+                                  <AlertCircle className="w-4 h-4" />
+                                  {customer.activeInstallments} apartado(s) activo(s)
+                                </p>
+                                <p className="text-2xl text-red-600 font-bold mt-1">
+                                  ${customer.totalPending?.toFixed(2) || '0.00'}
+                                </p>
+                                <p className="text-xs text-red-700 mt-1">Pendiente de pago</p>
+                              </div>
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  // Aquí necesitarías obtener el order_id real
+                                  // Por ahora mostramos un mensaje
+                                  alert('Para registrar un abono, ve al detalle del pedido en la sección de Pedidos')
+                                }}
+                                className="bg-red-500 hover:bg-red-600 text-white font-semibold shadow-md"
+                              >
+                                💳 Ver Apartados
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -239,17 +331,17 @@ export default function CustomersPage() {
 
                     <div className="text-right">
                       <p className="text-sm text-gray-600">Total gastado</p>
-                      <p className="text-xl font-bold text-orange-600">
+                      <p className="text-2xl font-bold text-orange-600">
                         ${customer.totalSpent.toFixed(2)}
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-500 mt-1">
                         Último: {new Date(customer.lastOrderDate).toLocaleDateString('es-VE')}
                       </p>
                     </div>
                   </div>
 
                   {/* Acciones */}
-                  <div className="mt-3 pt-3 border-t flex gap-2">
+                  <div className="mt-4 pt-4 border-t flex gap-2">
                     <Link href={`/dashboard/customers/${encodeURIComponent(customer.phone)}`} className="flex-1">
                       <Button variant="outline" size="sm" className="w-full">
                         <ShoppingBag className="w-4 h-4 mr-2" />
@@ -262,7 +354,7 @@ export default function CustomersPage() {
                       rel="noopener noreferrer"
                       className="flex-1"
                     >
-                      <Button variant="outline" size="sm" className="w-full text-green-600">
+                      <Button variant="outline" size="sm" className="w-full text-green-600 hover:bg-green-50">
                         <Phone className="w-4 h-4 mr-2" />
                         WhatsApp
                       </Button>
