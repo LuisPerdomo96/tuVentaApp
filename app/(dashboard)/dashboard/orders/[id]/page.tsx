@@ -518,7 +518,7 @@ function InstallmentSection({ orderId, order, onStatusChange }: any) {
       if (result.isFullyPaid) {
         alert('✅ ¡Pago completado! El pedido ha sido aprobado automáticamente.')
       } else {
-        alert(`✅ Pago registrado. Saldo restante: $${result.newRemainingBalance.toFixed(2)}`)
+        alert(`✅ Pago registrado. Saldo restante: $${(result.newRemainingBalance || 0).toFixed(2)}`)
       }
     }
   }
