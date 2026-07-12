@@ -1,3 +1,6 @@
+'use client'
+
+import { useState } from 'react'
 import { signup } from '../actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,9 +13,29 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { AlertCircle, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
 export default function RegisterPage() {
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+
+    const formData = new FormData(e.currentTarget)
+    
+    try {
+      await signup(formData)
+    } catch (err: any) {
+      setError(err.message || 'Error al crear cuenta')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md">
@@ -22,7 +45,15 @@ export default function RegisterPage() {
             Empieza a vender en línea en minutos
           </CardDescription>
         </CardHeader>
-        <form action={signup}>
+        
+        {error && (
+          <div className="mx-6 mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-800">
+            <AlertCircle className="w-4 h-4" />
+            {error}
+          </div>
+        )}
+        
+        <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="full_name">Nombre completo</Label>
@@ -57,8 +88,15 @@ export default function RegisterPage() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-3">
-            <Button type="submit" className="w-full">
-              Crear Cuenta
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creando cuenta...
+                </>
+              ) : (
+                'Crear Cuenta'
+              )}
             </Button>
             <p className="text-sm text-gray-600 text-center">
               ¿Ya tienes cuenta?{' '}
