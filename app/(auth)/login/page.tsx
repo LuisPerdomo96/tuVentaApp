@@ -1,63 +1,65 @@
-import { login } from '../actions'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import Link from 'next/link'
+'use server'
 
-export default function LoginPage() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Iniciar Sesión</CardTitle>
-          <CardDescription>
-            Ingresa a tu panel de administración
-          </CardDescription>
-        </CardHeader>
-        <form action={login}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Correo electrónico</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="tu@email.com"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Contraseña</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col gap-3">
-            <Button type="submit" className="w-full">
-              Iniciar Sesión
-            </Button>
-            <p className="text-sm text-gray-600 text-center">
-              ¿No tienes cuenta?{' '}
-              <Link href="/register" className="text-orange-600 hover:underline font-medium">
-                Regístrate gratis
-              </Link>
-            </p>
-          </CardFooter>
-        </form>
-      </Card>
-    </div>
-  )
+import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+
+export async function login(formData: FormData) {
+  const supabase = await createClient()
+
+  const data = {
+    email: formData.get('email') as string,
+    password: formData.get('password') as string,
+  }
+
+  const { error } = await supabase.auth.signInWithPassword(data)
+
+  if (error) {
+    // ✅ CORRECCIÓN: Lanzar error en vez de retornar
+    throw new Error(error.message)
+  }
+
+  revalidatePath('/', 'layout')
+  
+  // Verificar si el usuario ya tiene empresa
+  const { data: companies } = await supabase
+    .from('companies')
+    .select('id')
+    .limit(1)
+  
+  if (companies && companies.length > 0) {
+    redirect('/dashboard')
+  } else {
+    redirect('/onboarding')
+  }
+}
+
+export async function signup(formData: FormData) {
+  const supabase = await createClient()
+
+  const data = {
+    email: formData.get('email') as string,
+    password: formData.get('password') as string,
+    options: {
+      data: {
+        full_name: formData.get('full_name') as string,
+      },
+    },
+  }
+
+  const { error } = await supabase.auth.signUp(data)
+
+  if (error) {
+    // ✅ CORRECCIÓN: Lanzar error en vez de retornar
+    throw new Error(error.message)
+  }
+
+  revalidatePath('/', 'layout')
+  redirect('/onboarding')
+}
+
+export async function logout() {
+  const supabase = await createClient()
+  await supabase.auth.signOut()
+  redirect('/login')
 }
