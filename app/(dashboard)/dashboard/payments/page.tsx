@@ -203,7 +203,7 @@ export default function PaymentsPage() {
               <select
                 value={newMethod.type}
                 onChange={(e) => {
-                  setNewMethod({ type: e.target.value, details: {} })
+                  setNewMethod({ type: e.target.value, details: {} as any })
                 }}
                 className="w-full px-3 py-2 border rounded-lg mt-1"
               >
