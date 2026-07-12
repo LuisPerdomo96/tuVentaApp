@@ -1,13 +1,27 @@
 'use client'
 
 import { useState } from 'react'
-import { login } from './actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { AlertCircle, Loader2 } from 'lucide-react'
 import Link from 'next/link'
+
+async function login(formData: FormData) {
+  const response = await fetch('/api/login', {
+    method: 'POST',
+    body: formData,
+    cache: 'no-store',
+  })
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    throw new Error(data?.message || 'Error al iniciar sesión')
+  }
+
+  return response.json()
+}
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
