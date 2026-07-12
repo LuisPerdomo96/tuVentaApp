@@ -17,7 +17,7 @@ export default function PaymentsPage() {
   const [saving, setSaving] = useState(false)
   const [exchangeRate, setExchangeRate] = useState('36.50')
   const [paymentMethods, setPaymentMethods] = useState<any[]>([])
-  const [newMethod, setNewMethod] = useState({
+  const [newMethod, setNewMethod] = useState<any>({
     type: 'pago_movil',
     details: { banco: '', telefono: '', cedula: '' }
   })
