@@ -15,12 +15,12 @@ export async function login(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword(data)
 
   if (error) {
-    return { error: error.message }
+    // ✅ CORRECCIÓN: Lanzar error en vez de retornar
+    throw new Error(error.message)
   }
 
   revalidatePath('/', 'layout')
   
-  // Verificar si el usuario ya tiene empresa
   const { data: companies } = await supabase
     .from('companies')
     .select('id')
@@ -49,7 +49,8 @@ export async function signup(formData: FormData) {
   const { error } = await supabase.auth.signUp(data)
 
   if (error) {
-    return { error: error.message }
+    // ✅ CORRECCIÓN: Lanzar error en vez de retornar
+    throw new Error(error.message)
   }
 
   revalidatePath('/', 'layout')
