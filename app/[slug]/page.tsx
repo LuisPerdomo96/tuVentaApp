@@ -14,10 +14,7 @@ import {
   ChevronRight, 
   Camera,
   Search,
-  Clock,
   Package,
-  Truck,
-  CheckCircle,
   ShoppingBag
 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
@@ -177,18 +174,17 @@ export default function PublicCatalogPage() {
   }
 
   function addToCart(product: Product) {
-  const existingItem = cart.find(item => item.product.id === product.id)
-  if (existingItem) {
-    setCart(cart.map(item =>
-      item.product.id === product.id
-        ? { ...item, quantity: item.quantity + 1 }
-        : item
-    ))
-  } else {
-    setCart([...cart, { product, quantity: 1 }])
-    // ❌ ELIMINA ESTA LÍNEA: setShowCart(true)
+    const existingItem = cart.find(item => item.product.id === product.id)
+    if (existingItem) {
+      setCart(cart.map(item =>
+        item.product.id === product.id
+          ? { ...item, quantity: item.quantity + 1 }
+          : item
+      ))
+    } else {
+      setCart([...cart, { product, quantity: 1 }])
+    }
   }
-}
 
   function removeFromCart(productId: string) {
     const existingItem = cart.find(item => item.product.id === productId)
@@ -257,49 +253,54 @@ export default function PublicCatalogPage() {
 
   return (
     <div className={`min-h-screen ${getFontClass()}`} style={{ backgroundColor: bgColor }}>
-      {/* Header Elegante */}
+      {/* ✅ Header Responsive */}
       <header className="sticky top-0 z-40 backdrop-blur-md bg-white/80 border-b shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
               {company.logo_url ? (
                 <img 
                   src={company.logo_url} 
                   alt={company.name}
-                  className="w-14 h-14 rounded-2xl object-cover shadow-md"
+                  className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl object-cover shadow-md flex-shrink-0"
                 />
               ) : (
                 <div 
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-bold shadow-md"
+                  className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center text-lg sm:text-2xl font-bold shadow-md flex-shrink-0"
                   style={{ backgroundColor: primaryColor, color: 'white' }}
                 >
                   {company.name.charAt(0).toUpperCase()}
                 </div>
               )}
-              <div className="flex-1">
-                <h1 className="text-xl font-bold text-gray-900">{company.name}</h1>
-                <p className="text-sm text-gray-500">
+              <div className="flex-1 min-w-0">
+                <h1 className="text-base sm:text-xl font-bold text-gray-900 truncate">{company.name}</h1>
+                <p className="text-xs sm:text-sm text-gray-500">
                   {company.type === 'restaurant' ? '🍽️ Restaurante' : '🛍️ Tienda'}
                 </p>
               </div>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+              {/* ✅ Botón Mi Pedido - Visible en móvil */}
               <Link href={`/${slug}/track-order`}>
-                <Button variant="outline" size="sm" className="hidden sm:flex gap-2">
-                  <Package className="w-4 h-4" />
-                  Mi Pedido
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm"
+                >
+                  <Package className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Mi Pedido</span>
                 </Button>
               </Link>
               <Button 
                 onClick={() => setShowCart(true)}
-                className="relative"
+                className="relative px-2 sm:px-3 py-1.5 sm:py-2"
                 style={{ backgroundColor: primaryColor }}
                 size="sm"
               >
-                <ShoppingCart className="w-4 h-4" />
+                <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" />
                 {getCartCount() > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                  <span className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 bg-red-500 text-white text-[10px] sm:text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center font-bold">
                     {getCartCount()}
                   </span>
                 )}
@@ -310,17 +311,17 @@ export default function PublicCatalogPage() {
       </header>
 
       {/* Buscador y Filtros */}
-      <div className="bg-white/50 backdrop-blur-sm border-b sticky top-[80px] z-30">
-        <div className="max-w-6xl mx-auto px-4 py-4 space-y-3">
+      <div className="bg-white/50 backdrop-blur-sm border-b sticky top-[64px] sm:top-[80px] z-30">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-3 sm:py-4 space-y-2 sm:space-y-3">
           {/* Buscador */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
             <input
               type="text"
               placeholder="Buscar productos..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white/80"
+              className="w-full pl-10 sm:pl-11 pr-4 py-2.5 sm:py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white/80 text-sm sm:text-base"
             />
           </div>
 
@@ -328,7 +329,7 @@ export default function PublicCatalogPage() {
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
             <button
               onClick={() => setSelectedCategory('all')}
-              className={`px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+              className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all ${
                 selectedCategory === 'all'
                   ? 'text-white shadow-md'
                   : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
@@ -341,7 +342,7 @@ export default function PublicCatalogPage() {
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all ${
+                className={`px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-medium whitespace-nowrap transition-all ${
                   selectedCategory === cat.id
                     ? 'text-white shadow-md'
                     : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
@@ -355,15 +356,15 @@ export default function PublicCatalogPage() {
         </div>
       </div>
 
-      {/* Productos */}
-      <main className="max-w-6xl mx-auto px-4 py-6">
+      {/* ✅ Productos - Grid 2 columnas en móvil */}
+      <main className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {filteredProducts.length === 0 ? (
           <div className="text-center py-16">
             <ShoppingBag className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500 text-lg">No hay productos disponibles</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
             {filteredProducts.map(product => (
               <Card key={product.id} className="group overflow-hidden hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white">
                 {/* Imagen */}
@@ -379,14 +380,14 @@ export default function PublicCatalogPage() {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <span className="text-gray-400">Sin imagen</span>
+                      <span className="text-gray-400 text-xs sm:text-sm">Sin imagen</span>
                     </div>
                   )}
 
                   {/* Badge de categoría */}
                   {product.category_name && (
-                    <div className="absolute top-3 left-3">
-                      <Badge className="bg-black/70 text-white text-xs backdrop-blur-sm">
+                    <div className="absolute top-2 left-2 sm:top-3 sm:left-3">
+                      <Badge className="bg-black/70 text-white text-[10px] sm:text-xs backdrop-blur-sm px-2 py-0.5 sm:px-2.5 sm:py-1">
                         {product.category_name}
                       </Badge>
                     </div>
@@ -395,7 +396,7 @@ export default function PublicCatalogPage() {
                   {/* Badge del producto */}
                   {product.badge && (
                     <div 
-                      className="absolute top-3 right-3 px-3 py-1.5 rounded-full text-xs font-bold text-white shadow-lg"
+                      className="absolute top-2 right-2 sm:top-3 sm:right-3 px-2 py-1 sm:px-3 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold text-white shadow-lg"
                       style={{ backgroundColor: product.badge.color }}
                     >
                       {product.badge.name}
@@ -404,62 +405,62 @@ export default function PublicCatalogPage() {
 
                   {/* Múltiples imágenes */}
                   {product.images && product.images.length > 1 && (
-                    <div className="absolute bottom-3 right-3 bg-black/70 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1 backdrop-blur-sm">
+                    <div className="absolute bottom-2 right-2 sm:bottom-3 sm:right-3 bg-black/70 text-white px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium flex items-center gap-1 backdrop-blur-sm">
                       <Camera className="w-3 h-3" />
                       {product.images.length}
                     </div>
                   )}
                 </div>
 
-                <CardContent className="p-5 space-y-3">
+                <CardContent className="p-2.5 sm:p-3 md:p-5 space-y-2 sm:space-y-3">
                   <div>
-                    <h3 className="font-bold text-gray-900 text-lg leading-tight mb-1">
+                    <h3 className="font-bold text-gray-900 text-xs sm:text-sm md:text-lg leading-tight mb-1 line-clamp-2">
                       {product.name}
                     </h3>
                     {company.show_descriptions !== false && product.description && (
-                      <p className="text-sm text-gray-500 line-clamp-2">
+                      <p className="text-[10px] sm:text-sm text-gray-500 line-clamp-2 hidden sm:block">
                         {product.description}
                       </p>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between pt-2">
+                  <div className="flex items-center justify-between pt-1 sm:pt-2">
                     {company.show_prices !== false && (
-                      <span className="text-2xl font-bold" style={{ color: primaryColor }}>
+                      <span className="text-sm sm:text-lg md:text-2xl font-bold" style={{ color: primaryColor }}>
                         ${product.price_usd.toFixed(2)}
                       </span>
                     )}
                     <Button
                       size="sm"
                       onClick={() => addToCart(product)}
-                      className="rounded-full w-10 h-10 p-0 shadow-lg hover:shadow-xl transition-shadow"
+                      className="rounded-full w-8 h-8 sm:w-10 sm:h-10 p-0 shadow-lg hover:shadow-xl transition-shadow"
                       style={{ backgroundColor: primaryColor }}
                     >
-                      <Plus className="w-5 h-5" />
+                      <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
                     </Button>
                   </div>
 
                   {/* Cantidad en carrito */}
                   {getCartQuantity(product.id) > 0 && (
-                    <div className="flex items-center justify-center gap-3 pt-2 border-t">
+                    <div className="flex items-center justify-center gap-2 sm:gap-3 pt-2 border-t">
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => removeFromCart(product.id)}
-                        className="rounded-full w-8 h-8 p-0"
+                        className="rounded-full w-7 h-7 sm:w-8 sm:h-8 p-0"
                       >
-                        <Minus className="w-4 h-4" />
+                        <Minus className="w-3 h-3 sm:w-4 sm:h-4" />
                       </Button>
-                      <span className="font-bold text-lg w-8 text-center">
+                      <span className="font-bold text-sm sm:text-lg w-6 sm:w-8 text-center">
                         {getCartQuantity(product.id)}
                       </span>
                       <Button
                         size="sm"
                         onClick={() => addToCart(product)}
-                        className="rounded-full w-8 h-8 p-0"
+                        className="rounded-full w-7 h-7 sm:w-8 sm:h-8 p-0"
                         style={{ backgroundColor: primaryColor }}
                       >
-                        <Plus className="w-4 h-4" />
+                        <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
                       </Button>
                     </div>
                   )}
@@ -470,95 +471,130 @@ export default function PublicCatalogPage() {
         )}
       </main>
 
-      {/* Modal de Carrito Elegante */}
+      {/* ✅ Modal de Carrito - Versión Mejorada para Móvil */}
       {showCart && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowCart(false)} />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-hidden">
-            <div className="p-6 border-b flex items-center justify-between">
-              <h2 className="text-xl font-bold">Tu Carrito</h2>
-              <Button variant="ghost" size="sm" onClick={() => setShowCart(false)}>
+          <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden animate-slide-up">
+            <div className="p-4 sm:p-6 border-b flex items-center justify-between">
+              <h2 className="text-lg sm:text-xl font-bold">Tu Carrito</h2>
+              <button onClick={() => setShowCart(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                 <X className="w-5 h-5" />
-              </Button>
+              </button>
             </div>
             
-            <div className="overflow-y-auto max-h-[50vh] p-6 space-y-4">
-              {cart.map(item => (
-                <div key={item.product.id} className="flex gap-4 items-center">
-                  <div className="w-20 h-20 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
-                    {item.product.images && item.product.images[0] ? (
-                      <img src={item.product.images[0]} alt={item.product.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">Sin imagen</div>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold">{item.product.name}</h3>
-                    <p className="text-sm text-gray-500">${item.product.price_usd.toFixed(2)} c/u</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button size="sm" variant="outline" onClick={() => removeFromCart(item.product.id)} className="w-8 h-8 p-0 rounded-full">
-                      <Minus className="w-3 h-3" />
-                    </Button>
-                    <span className="font-bold w-8 text-center">{item.quantity}</span>
-                    <Button size="sm" onClick={() => addToCart(item.product)} className="w-8 h-8 p-0 rounded-full" style={{ backgroundColor: primaryColor }}>
-                      <Plus className="w-3 h-3" />
-                    </Button>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold" style={{ color: primaryColor }}>
-                      ${(item.product.price_usd * item.quantity).toFixed(2)}
-                    </p>
-                  </div>
+            <div className="overflow-y-auto max-h-[50vh] p-4 sm:p-6 space-y-4">
+              {cart.length === 0 ? (
+                <div className="text-center py-8">
+                  <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">Tu carrito está vacío</p>
                 </div>
-              ))}
+              ) : (
+                cart.map(item => (
+                  <div key={item.product.id} className="flex gap-3 sm:gap-4 items-center">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                      {item.product.images && item.product.images[0] ? (
+                        <img src={item.product.images[0]} alt={item.product.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-[10px] sm:text-xs">Sin imagen</div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm sm:text-base truncate">{item.product.name}</h3>
+                      <p className="text-xs sm:text-sm text-gray-500">${item.product.price_usd.toFixed(2)} c/u</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <button 
+                        onClick={() => removeFromCart(item.product.id)}
+                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-100 transition-colors"
+                      >
+                        <Minus className="w-3 h-3" />
+                      </button>
+                      <span className="font-bold w-6 sm:w-8 text-center text-sm sm:text-base">{item.quantity}</span>
+                      <button 
+                        onClick={() => addToCart(item.product)}
+                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white hover:opacity-90 transition-opacity"
+                        style={{ backgroundColor: primaryColor }}
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <div className="text-right min-w-[50px] sm:min-w-[60px]">
+                      <p className="font-bold text-sm sm:text-base" style={{ color: primaryColor }}>
+                        ${(item.product.price_usd * item.quantity).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
 
-            <div className="p-6 border-t bg-gray-50">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-lg font-semibold">Total</span>
-                <span className="text-2xl font-bold" style={{ color: primaryColor }}>
-                  ${getCartTotal().toFixed(2)}
-                </span>
+            {cart.length > 0 && (
+              <div className="p-4 sm:p-6 border-t bg-gray-50">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-base sm:text-lg font-semibold">Total</span>
+                  <span className="text-xl sm:text-2xl font-bold" style={{ color: primaryColor }}>
+                    ${getCartTotal().toFixed(2)}
+                  </span>
+                </div>
+                <button 
+                  onClick={() => {
+                    setShowCart(false)
+                    router.push(`/${slug}/checkout`)
+                  }}
+                  className="w-full h-12 sm:h-14 text-base sm:text-lg font-bold text-white rounded-xl hover:opacity-90 transition-opacity shadow-lg"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  Proceder al Pago
+                </button>
               </div>
-              <Button 
-                className="w-full h-12 text-lg"
-                style={{ backgroundColor: primaryColor }}
-                onClick={() => {
-                  setShowCart(false)
-                  router.push(`/${slug}/checkout`)
-                }}
-              >
-                Proceder al Pago
-              </Button>
-            </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Modal de Galería (igual que antes) */}
+      {/* ✅ Modal de Galería - Flechas con mejor contraste */}
       {galleryProduct && galleryProduct.images && galleryProduct.images.length > 0 && (
         <div className="fixed inset-0 bg-black/95 z-50 flex items-center justify-center" onClick={closeGallery}>
-          <button onClick={closeGallery} className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white rounded-full p-2 z-10">
+          <button 
+            onClick={closeGallery} 
+            className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white rounded-full p-2 z-10 transition-colors backdrop-blur-sm"
+          >
             <X className="w-6 h-6" />
           </button>
           <div className="relative max-w-4xl w-full h-full flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
             {galleryProduct.images.length > 1 && (
-              <button onClick={previousImage} className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white rounded-full p-3">
-                <ChevronLeft className="w-6 h-6" />
+              <button 
+                onClick={previousImage} 
+                className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white rounded-full p-2 sm:p-3 z-10 transition-colors backdrop-blur-sm"
+              >
+                <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             )}
-            <img src={galleryProduct.images[currentImageIndex]} alt={galleryProduct.name} className="max-w-full max-h-full object-contain rounded-lg" />
+            <img 
+              src={galleryProduct.images[currentImageIndex]} 
+              alt={galleryProduct.name} 
+              className="max-w-full max-h-full object-contain rounded-lg" 
+            />
             {galleryProduct.images.length > 1 && (
-              <button onClick={nextImage} className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white rounded-full p-3">
-                <ChevronRight className="w-6 h-6" />
+              <button 
+                onClick={nextImage} 
+                className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white rounded-full p-2 sm:p-3 z-10 transition-colors backdrop-blur-sm"
+              >
+                <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             )}
           </div>
           {galleryProduct.images.length > 1 && (
-            <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 px-4">
+            <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2 px-4 overflow-x-auto">
               {galleryProduct.images.map((img, idx) => (
-                <button key={idx} onClick={() => setCurrentImageIndex(idx)} className={`relative w-16 h-16 rounded-lg overflow-hidden border-2 ${idx === currentImageIndex ? 'border-white scale-110' : 'border-white/30 opacity-60'}`}>
+                <button 
+                  key={idx} 
+                  onClick={() => setCurrentImageIndex(idx)} 
+                  className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border-2 flex-shrink-0 transition-all ${
+                    idx === currentImageIndex ? 'border-white scale-110' : 'border-white/30 opacity-60'
+                  }`}
+                >
                   <img src={img} alt="" className="w-full h-full object-cover" />
                 </button>
               ))}

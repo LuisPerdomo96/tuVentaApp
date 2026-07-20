@@ -6,18 +6,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { 
   ArrowLeft, 
   Upload, 
   X, 
   Loader2, 
-  DollarSign,
   Home,
   ShoppingBag,
   CreditCard,
   Smartphone,
-  Wallet,
   Banknote,
   CheckCircle
 } from 'lucide-react'
@@ -103,6 +100,50 @@ export default function CheckoutPage() {
     }
   }
 
+  // ✅ FUNCIÓN MEJORADA PARA COPIAR DATOS DE PAGO
+  async function copyPaymentData() {
+    if (!selectedMethod || !company) return
+    
+    let text = `📋 Datos para Transferir:\n\n`
+    
+    if (selectedMethod.type === 'pago_movil') {
+      text += `Banco: ${selectedMethod.details.banco}\n`
+      text += `Teléfono: ${selectedMethod.details.telefono}\n`
+      text += `Cédula: ${selectedMethod.details.cedula}\n`
+      text += `Monto: Bs. ${isInstallment ? (parseFloat(initialPaymentAmount) * parseFloat(company.exchange_rate || 1)).toFixed(2) : totalBs}`
+    } else if (selectedMethod.type === 'binance') {
+      text += `Binance Pay ID: ${selectedMethod.details.binance_id}\n`
+      text += `Monto: $${initialPaymentAmount} USDT`
+    } else if (selectedMethod.type === 'zelle' || selectedMethod.type === 'paypal') {
+      text += `Email: ${selectedMethod.details.email}\n`
+      text += `Monto: $${initialPaymentAmount}`
+    } else if (selectedMethod.type === 'cash') {
+      text += `Monto: $${initialPaymentAmount} (Efectivo al recibir)`
+    }
+
+    text += `\n\n💳 Por favor, realiza el pago y adjunta la captura o referencia.`
+
+    try {
+      await navigator.clipboard.writeText(text)
+      alert('✅ Datos copiados al portapapeles')
+    } catch (err) {
+      // Fallback para navegadores móviles antiguos
+      const textArea = document.createElement('textarea')
+      textArea.value = text
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-999999px'
+      document.body.appendChild(textArea)
+      textArea.select()
+      try {
+        document.execCommand('copy')
+        alert('✅ Datos copiados al portapapeles')
+      } catch (err) {
+        alert('❌ No se pudo copiar automáticamente. Por favor, copia manualmente.')
+      }
+      document.body.removeChild(textArea)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSubmitting(true)
@@ -139,7 +180,7 @@ export default function CheckoutPage() {
     setSubmitting(false)
 
     if (result.error) {
-      alert(result.error)
+      alert('❌ ' + result.error)
     } else {
       localStorage.removeItem(`cart_${slug}`)
       router.push(`/${slug}/confirmation?orderId=${result.orderId}&whatsapp=${result.whatsappNumber}`)
@@ -181,7 +222,7 @@ export default function CheckoutPage() {
   function getPaymentIcon(type: string) {
     switch (type) {
       case 'pago_movil': return <Smartphone className="w-5 h-5" />
-      case 'binance': return <span className="text-xl"></span>
+      case 'binance': return <span className="text-xl">🟡</span>
       case 'zelle': return <span className="text-xl">💵</span>
       case 'paypal': return <span className="text-xl">🅿️</span>
       case 'cash': return <Banknote className="w-5 h-5" />
@@ -239,29 +280,29 @@ export default function CheckoutPage() {
               Tu Pedido
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="space-y-3">
               {cart.map(item => (
                 <div key={item.product.id} className="flex justify-between items-center py-3 border-b last:border-0">
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900">{item.product.name}</p>
-                    <p className="text-sm text-gray-500">
+                  <div className="flex-1 min-w-0 pr-4">
+                    <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">{item.product.name}</p>
+                    <p className="text-xs sm:text-sm text-gray-500">
                       {item.quantity}x ${item.product.price_usd.toFixed(2)}
                     </p>
                   </div>
-                  <p className="font-bold text-lg" style={{ color: primaryColor }}>
+                  <p className="font-bold text-sm sm:text-lg flex-shrink-0" style={{ color: primaryColor }}>
                     ${(item.product.price_usd * item.quantity).toFixed(2)}
                   </p>
                 </div>
               ))}
               <div className="flex justify-between items-center pt-4 border-t-2" style={{ borderColor: primaryColor }}>
-                <p className="text-lg font-bold">Total USD</p>
-                <p className="text-2xl font-bold" style={{ color: primaryColor }}>
+                <p className="text-base sm:text-lg font-bold">Total USD</p>
+                <p className="text-xl sm:text-2xl font-bold" style={{ color: primaryColor }}>
                   ${cartTotal.toFixed(2)}
                 </p>
               </div>
               {company && (
-                <div className="flex justify-between items-center text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+                <div className="flex justify-between items-center text-xs sm:text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
                   <p>Equivalente en Bs (tasa {company.exchange_rate})</p>
                   <p className="font-bold">Bs. {totalBs}</p>
                 </div>
@@ -278,7 +319,7 @@ export default function CheckoutPage() {
               Tipo de Entrega
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {company?.delivery_enabled !== false && (
                 <label className="relative cursor-pointer group">
@@ -290,11 +331,11 @@ export default function CheckoutPage() {
                     onChange={(e) => setFormData({ ...formData, deliveryType: e.target.value })}
                     className="peer sr-only"
                   />
-                  <div className="flex flex-col items-center p-4 border-2 border-gray-200 rounded-xl peer-checked:border-white peer-checked:shadow-lg transition-all hover:shadow-md" style={{ backgroundColor: formData.deliveryType === 'delivery' ? primaryColor : 'white' }}>
+                  <div className="flex flex-col items-center p-3 sm:p-4 border-2 border-gray-200 rounded-xl peer-checked:border-white peer-checked:shadow-lg transition-all hover:shadow-md" style={{ backgroundColor: formData.deliveryType === 'delivery' ? primaryColor : 'white' }}>
                     <div className={`mb-2 ${formData.deliveryType === 'delivery' ? 'text-white' : 'text-gray-600'}`}>
                       {getDeliveryIcon('delivery')}
                     </div>
-                    <span className={`text-sm font-medium ${formData.deliveryType === 'delivery' ? 'text-white' : 'text-gray-700'}`}>
+                    <span className={`text-xs sm:text-sm font-medium text-center ${formData.deliveryType === 'delivery' ? 'text-white' : 'text-gray-700'}`}>
                       {getDeliveryLabel('delivery')}
                     </span>
                   </div>
@@ -311,11 +352,11 @@ export default function CheckoutPage() {
                     onChange={(e) => setFormData({ ...formData, deliveryType: e.target.value })}
                     className="peer sr-only"
                   />
-                  <div className="flex flex-col items-center p-4 border-2 border-gray-200 rounded-xl peer-checked:border-white peer-checked:shadow-lg transition-all hover:shadow-md" style={{ backgroundColor: formData.deliveryType === 'pickup' ? primaryColor : 'white' }}>
+                  <div className="flex flex-col items-center p-3 sm:p-4 border-2 border-gray-200 rounded-xl peer-checked:border-white peer-checked:shadow-lg transition-all hover:shadow-md" style={{ backgroundColor: formData.deliveryType === 'pickup' ? primaryColor : 'white' }}>
                     <div className={`mb-2 ${formData.deliveryType === 'pickup' ? 'text-white' : 'text-gray-600'}`}>
                       {getDeliveryIcon('pickup')}
                     </div>
-                    <span className={`text-sm font-medium ${formData.deliveryType === 'pickup' ? 'text-white' : 'text-gray-700'}`}>
+                    <span className={`text-xs sm:text-sm font-medium text-center ${formData.deliveryType === 'pickup' ? 'text-white' : 'text-gray-700'}`}>
                       {getDeliveryLabel('pickup')}
                     </span>
                   </div>
@@ -332,9 +373,9 @@ export default function CheckoutPage() {
                     onChange={(e) => setFormData({ ...formData, deliveryType: e.target.value })}
                     className="peer sr-only"
                   />
-                  <div className="flex flex-col items-center p-4 border-2 border-gray-200 rounded-xl peer-checked:border-white peer-checked:shadow-lg transition-all hover:shadow-md" style={{ backgroundColor: formData.deliveryType === 'table' ? primaryColor : 'white' }}>
+                  <div className="flex flex-col items-center p-3 sm:p-4 border-2 border-gray-200 rounded-xl peer-checked:border-white peer-checked:shadow-lg transition-all hover:shadow-md" style={{ backgroundColor: formData.deliveryType === 'table' ? primaryColor : 'white' }}>
                     <div className="mb-2 text-xl">{formData.deliveryType === 'table' ? '🍽️' : '🍽️'}</div>
-                    <span className={`text-sm font-medium ${formData.deliveryType === 'table' ? 'text-white' : 'text-gray-700'}`}>
+                    <span className={`text-xs sm:text-sm font-medium text-center ${formData.deliveryType === 'table' ? 'text-white' : 'text-gray-700'}`}>
                       {getDeliveryLabel('table')}
                     </span>
                   </div>
@@ -351,9 +392,9 @@ export default function CheckoutPage() {
                     onChange={(e) => setFormData({ ...formData, deliveryType: e.target.value })}
                     className="peer sr-only"
                   />
-                  <div className="flex flex-col items-center p-4 border-2 border-gray-200 rounded-xl peer-checked:border-white peer-checked:shadow-lg transition-all hover:shadow-md" style={{ backgroundColor: formData.deliveryType === 'installment' ? primaryColor : 'white' }}>
-                    <div className="mb-2 text-xl">{formData.deliveryType === 'installment' ? '' : '💳'}</div>
-                    <span className={`text-sm font-medium ${formData.deliveryType === 'installment' ? 'text-white' : 'text-gray-700'}`}>
+                  <div className="flex flex-col items-center p-3 sm:p-4 border-2 border-gray-200 rounded-xl peer-checked:border-white peer-checked:shadow-lg transition-all hover:shadow-md" style={{ backgroundColor: formData.deliveryType === 'installment' ? primaryColor : 'white' }}>
+                    <div className="mb-2 text-xl">{formData.deliveryType === 'installment' ? '💳' : '💳'}</div>
+                    <span className={`text-xs sm:text-sm font-medium text-center ${formData.deliveryType === 'installment' ? 'text-white' : 'text-gray-700'}`}>
                       {getDeliveryLabel('installment')}
                     </span>
                   </div>
@@ -369,7 +410,7 @@ export default function CheckoutPage() {
                   onChange={(e) => setFormData({ ...formData, customerAddress: e.target.value })}
                   placeholder="Calle, número, punto de referencia..."
                   rows={3}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl mt-2 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl mt-2 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-sm"
                   required
                 />
               </div>
@@ -390,9 +431,9 @@ export default function CheckoutPage() {
             )}
 
             {formData.deliveryType === 'installment' && (
-              <div className="mt-5 p-5 rounded-xl border-2" style={{ backgroundColor: `${primaryColor}10`, borderColor: `${primaryColor}30` }}>
-                <p className="font-bold text-lg mb-4" style={{ color: primaryColor }}>📋 Detalle del Apartado</p>
-                <div className="space-y-3 text-sm">
+              <div className="mt-5 p-4 sm:p-5 rounded-xl border-2" style={{ backgroundColor: `${primaryColor}10`, borderColor: `${primaryColor}30` }}>
+                <p className="font-bold text-base sm:text-lg mb-4" style={{ color: primaryColor }}>📋 Detalle del Apartado</p>
+                <div className="space-y-3 text-xs sm:text-sm">
                   <div className="flex justify-between items-center p-2 bg-white rounded-lg">
                     <span>Total del pedido:</span>
                     <span className="font-bold">${cartTotal.toFixed(2)}</span>
@@ -407,7 +448,7 @@ export default function CheckoutPage() {
                   </div>
                 </div>
                 <p className="text-xs mt-4 p-3 bg-white rounded-lg" style={{ color: primaryColor }}>
-                  ️ El producto se entrega cuando completes el pago total.
+                  ⚠️ El producto se entrega cuando completes el pago total.
                 </p>
               </div>
             )}
@@ -422,7 +463,7 @@ export default function CheckoutPage() {
               Tus Datos
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6 space-y-4">
+          <CardContent className="p-4 sm:p-6 space-y-4">
             <div>
               <Label className="font-semibold">Nombre Completo *</Label>
               <Input
@@ -450,7 +491,7 @@ export default function CheckoutPage() {
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 placeholder="Ej: Sin cebolla, bien cocido..."
                 rows={3}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl mt-2 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl mt-2 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-sm"
               />
             </div>
           </CardContent>
@@ -464,7 +505,7 @@ export default function CheckoutPage() {
               Método de Pago
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             {paymentMethods.length === 0 ? (
               <p className="text-gray-500 text-center py-6">
                 El negocio no tiene métodos de pago configurados
@@ -484,14 +525,14 @@ export default function CheckoutPage() {
                       }}
                       className="peer sr-only"
                     />
-                    <div className={`p-4 border-2 rounded-xl transition-all hover:shadow-md ${formData.paymentMethod === method.type ? 'border-white shadow-lg' : 'border-gray-200'}`} style={{ backgroundColor: formData.paymentMethod === method.type ? `${primaryColor}10` : 'white' }}>
+                    <div className={`p-3 sm:p-4 border-2 rounded-xl transition-all hover:shadow-md ${formData.paymentMethod === method.type ? 'border-white shadow-lg' : 'border-gray-200'}`} style={{ backgroundColor: formData.paymentMethod === method.type ? `${primaryColor}10` : 'white' }}>
                       <div className="flex items-center gap-3">
                         <div style={{ color: primaryColor }}>
                           {getPaymentIcon(method.type)}
                         </div>
-                        <div className="flex-1">
-                          <p className="font-semibold">{method.name}</p>
-                          <p className="text-sm text-gray-600">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm sm:text-base">{method.name}</p>
+                          <p className="text-xs sm:text-sm text-gray-600 truncate">
                             {method.type === 'pago_movil' && `${method.details.banco} - ${method.details.telefono}`}
                             {method.type === 'binance' && `ID: ${method.details.binance_id}`}
                             {method.type === 'zelle' && method.details.email}
@@ -500,7 +541,7 @@ export default function CheckoutPage() {
                           </p>
                         </div>
                         {formData.paymentMethod === method.type && (
-                          <CheckCircle className="w-6 h-6" style={{ color: primaryColor }} />
+                          <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0" style={{ color: primaryColor }} />
                         )}
                       </div>
                     </div>
@@ -509,29 +550,43 @@ export default function CheckoutPage() {
               </div>
             )}
 
+            {/* ✅ SECCIÓN DE DATOS PARA TRANSFERIR CON BOTÓN DE COPIAR */}
             {selectedMethod && (
-              <div className="mt-5 p-5 rounded-xl border-2" style={{ backgroundColor: `${primaryColor}10`, borderColor: `${primaryColor}30` }}>
-                <p className="font-bold mb-3" style={{ color: primaryColor }}>📋 Datos para Transferir:</p>
-                <div className="text-sm space-y-2">
+              <div className="mt-5 p-4 sm:p-5 rounded-xl border-2" style={{ backgroundColor: `${primaryColor}10`, borderColor: `${primaryColor}30` }}>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="font-bold text-sm sm:text-base" style={{ color: primaryColor }}>📋 Datos para Transferir:</p>
+                  <button
+                    type="button"
+                    onClick={copyPaymentData}
+                    className="px-3 py-1.5 text-xs sm:text-sm font-semibold text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-1"
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    📋 Copiar
+                  </button>
+                </div>
+                <div className="text-xs sm:text-sm space-y-2">
                   {selectedMethod.type === 'pago_movil' && (
                     <>
-                      <div className="flex justify-between p-2 bg-white rounded"><span>Banco:</span><span className="font-semibold">{selectedMethod.details.banco}</span></div>
-                      <div className="flex justify-between p-2 bg-white rounded"><span>Teléfono:</span><span className="font-semibold">{selectedMethod.details.telefono}</span></div>
-                      <div className="flex justify-between p-2 bg-white rounded"><span>Cédula:</span><span className="font-semibold">{selectedMethod.details.cedula}</span></div>
-                      <div className="flex justify-between p-2 bg-white rounded border-t-2" style={{ borderColor: primaryColor }}><span>Monto a pagar:</span><span className="font-bold" style={{ color: primaryColor }}>Bs. {isInstallment ? (parseFloat(initialPaymentAmount) * parseFloat(company.exchange_rate || 1)).toFixed(2) : totalBs}</span></div>
+                      <div className="flex justify-between p-2 bg-white rounded"><span>Banco:</span><span className="font-semibold break-all text-right">{selectedMethod.details.banco}</span></div>
+                      <div className="flex justify-between p-2 bg-white rounded"><span>Teléfono:</span><span className="font-semibold break-all text-right">{selectedMethod.details.telefono}</span></div>
+                      <div className="flex justify-between p-2 bg-white rounded"><span>Cédula:</span><span className="font-semibold break-all text-right">{selectedMethod.details.cedula}</span></div>
+                      <div className="flex justify-between p-2 bg-white rounded border-t-2" style={{ borderColor: primaryColor }}><span>Monto a pagar:</span><span className="font-bold break-all text-right" style={{ color: primaryColor }}>Bs. {isInstallment ? (parseFloat(initialPaymentAmount) * parseFloat(company.exchange_rate || 1)).toFixed(2) : totalBs}</span></div>
                     </>
                   )}
                   {selectedMethod.type === 'binance' && (
                     <>
-                      <div className="flex justify-between p-2 bg-white rounded"><span>Binance Pay ID:</span><span className="font-semibold">{selectedMethod.details.binance_id}</span></div>
-                      <div className="flex justify-between p-2 bg-white rounded border-t-2" style={{ borderColor: primaryColor }}><span>Monto a pagar:</span><span className="font-bold" style={{ color: primaryColor }}>${initialPaymentAmount} USDT</span></div>
+                      <div className="flex justify-between p-2 bg-white rounded"><span>Binance Pay ID:</span><span className="font-semibold break-all text-right">{selectedMethod.details.binance_id}</span></div>
+                      <div className="flex justify-between p-2 bg-white rounded border-t-2" style={{ borderColor: primaryColor }}><span>Monto a pagar:</span><span className="font-bold break-all text-right" style={{ color: primaryColor }}>${initialPaymentAmount} USDT</span></div>
                     </>
                   )}
                   {(selectedMethod.type === 'zelle' || selectedMethod.type === 'paypal') && (
                     <>
-                      <div className="flex justify-between p-2 bg-white rounded"><span>Email:</span><span className="font-semibold">{selectedMethod.details.email}</span></div>
-                      <div className="flex justify-between p-2 bg-white rounded border-t-2" style={{ borderColor: primaryColor }}><span>Monto a pagar:</span><span className="font-bold" style={{ color: primaryColor }}>${initialPaymentAmount}</span></div>
+                      <div className="flex justify-between p-2 bg-white rounded"><span>Email:</span><span className="font-semibold break-all text-right">{selectedMethod.details.email}</span></div>
+                      <div className="flex justify-between p-2 bg-white rounded border-t-2" style={{ borderColor: primaryColor }}><span>Monto a pagar:</span><span className="font-bold break-all text-right" style={{ color: primaryColor }}>${initialPaymentAmount}</span></div>
                     </>
+                  )}
+                  {selectedMethod.type === 'cash' && (
+                    <div className="flex justify-between p-2 bg-white rounded border-t-2" style={{ borderColor: primaryColor }}><span>Monto a pagar:</span><span className="font-bold break-all text-right" style={{ color: primaryColor }}>${initialPaymentAmount} (Efectivo)</span></div>
                   )}
                 </div>
               </div>
@@ -563,9 +618,9 @@ export default function CheckoutPage() {
                       </button>
                     </div>
                   ) : (
-                    <label className="mt-2 flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-orange-500 transition-colors bg-gray-50">
-                      <Upload className="w-10 h-10 text-gray-400 mb-3" />
-                      <span className="text-sm text-gray-600 font-medium">Subir captura de pago</span>
+                    <label className="mt-2 flex flex-col items-center justify-center p-6 sm:p-8 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-orange-500 transition-colors bg-gray-50">
+                      <Upload className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400 mb-3" />
+                      <span className="text-xs sm:text-sm text-gray-600 font-medium text-center">Toca para subir captura de pago</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -575,7 +630,7 @@ export default function CheckoutPage() {
                       />
                     </label>
                   )}
-                  {uploadingImage && <p className="text-sm text-gray-600 mt-2">Subiendo...</p>}
+                  {uploadingImage && <p className="text-sm text-gray-600 mt-2 text-center">Subiendo imagen...</p>}
                 </div>
               </div>
             )}
@@ -585,7 +640,7 @@ export default function CheckoutPage() {
         {/* Botón de Envío */}
         <Button
           type="submit"
-          className="w-full h-14 text-lg font-bold shadow-lg hover:shadow-xl transition-shadow"
+          className="w-full h-14 text-base sm:text-lg font-bold shadow-lg hover:shadow-xl transition-shadow"
           style={{ backgroundColor: primaryColor }}
           disabled={submitting || uploadingImage}
         >
@@ -602,7 +657,7 @@ export default function CheckoutPage() {
           )}
         </Button>
 
-        <p className="text-xs text-center text-gray-500">
+        <p className="text-xs text-center text-gray-500 px-4">
           Al confirmar, se abrirá WhatsApp con el resumen de tu pedido
         </p>
       </form>
