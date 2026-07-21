@@ -27,10 +27,10 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="es"   // ← CAMBIO 1: era "en", ahora "es" (Chrome deja de ofrecer traducir español→español)
       className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", inter.variable)}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="notranslate min-h-full flex flex-col">{children}</body>   // ← CAMBIO 2: agregué "notranslate" al principio (candado anti-traductor)
     </html>
   );
 }
