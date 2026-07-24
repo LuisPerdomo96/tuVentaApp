@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { getPlan } from '@/lib/plans'
 
 interface Product {
   id: string
@@ -603,11 +604,18 @@ export default function PublicCatalogPage() {
         </div>
       )}
 
-      {/* Branding Free */}
-      {company.plan === 'free' && (
-        <div className="fixed bottom-4 left-0 right-0 text-center py-2 bg-gray-900/90 text-white text-xs z-10 rounded-lg mx-4">
-          <p>Powered by <span className="font-bold text-orange-400">tuVentaApp</span></p>
-        </div>
+      
+       {/* Branding (solo planes con showPoweredBy, ej. Free) — link para crear nuevas empresas */}
+      {getPlan(company.plan).showPoweredBy && (
+        <Link
+          href="/register"
+          className="fixed bottom-4 left-4 right-4 text-center py-2 bg-gray-900/90 text-white text-xs z-10 rounded-lg hover:bg-gray-800 transition-colors"
+        >
+          <p>
+            Powered by <span className="font-bold text-orange-400">tuVentaApp</span>
+            <span className="text-gray-300"> · Creá tu tienda gratis</span>
+          </p>
+        </Link>
       )}
     </div>
   )
