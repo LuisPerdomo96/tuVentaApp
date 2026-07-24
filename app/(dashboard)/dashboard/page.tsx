@@ -141,7 +141,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Período de Prueba (si aplica) */}
-      {company.plan === 'free' && (
+      {plan.id === 'free' && (
         <Card className="bg-linear-to-r from-orange-50 to-orange-100 border-orange-200">
           <CardContent className="p-6 flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
@@ -149,8 +149,8 @@ export default function DashboardPage() {
                 <Crown className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="font-bold text-lg">Período de prueba activo</h3>
-                <p className="text-sm text-gray-600">Pasate el Plan Pro para desbloquear todas las funciones</p>
+                <h3 className="font-bold text-lg">Estás en el Plan Gratuito</h3>
+                <p className="text-sm text-gray-600">Mejorá a Pro o Enterprise para más productos, personalización y sin sello "Powered by"</p>
               </div>
             </div>
             <Link href="/dashboard/plans">
