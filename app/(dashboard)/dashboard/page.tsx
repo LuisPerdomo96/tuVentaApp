@@ -18,6 +18,7 @@ import {
   CopyCheck
 } from 'lucide-react'
 import Link from 'next/link'
+import { getPlan } from '@/lib/plans'
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
@@ -102,8 +103,7 @@ export default function DashboardPage() {
 
   if (!company) return null
 
-  const planLimits: any = { free: 10, pro: 100, enterprise: 999999 }
-  const limit = planLimits[company.plan] || 10
+ const plan = getPlan(company.plan)
 
   return (
     <div className="space-y-6">
@@ -142,7 +142,7 @@ export default function DashboardPage() {
 
       {/* Período de Prueba (si aplica) */}
       {company.plan === 'free' && (
-        <Card className="bg-gradient-to-r from-orange-50 to-orange-100 border-orange-200">
+        <Card className="bg-linear-to-r from-orange-50 to-orange-100 border-orange-200">
           <CardContent className="p-6 flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center">
@@ -150,7 +150,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <h3 className="font-bold text-lg">Período de prueba activo</h3>
-                <p className="text-sm text-gray-600">Te quedan 14 días de prueba gratuita</p>
+                <p className="text-sm text-gray-600">Pasate el Plan Pro para desbloquear todas las funciones</p>
               </div>
             </div>
             <Link href="/dashboard/plans">
@@ -214,7 +214,7 @@ export default function DashboardPage() {
               <span className="text-sm text-gray-600">Plan Actual</span>
               <Crown className="w-5 h-5 text-orange-500" />
             </div>
-            <p className="text-3xl font-bold capitalize">{company.plan}</p>
+              <p className="text-3xl font-bold">{plan.name}</p>
             <Link href="/dashboard/plans">
               <p className="text-sm text-orange-600 mt-1 hover:underline cursor-pointer">
                 Ver planes →
@@ -276,11 +276,13 @@ export default function DashboardPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Plan:</span>
-                <Badge className="bg-orange-100 text-orange-800 capitalize">{company.plan}</Badge>
+                 <Badge className="bg-orange-100 text-orange-800">{plan.name}</Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Productos:</span>
-                <span className="font-medium">{stats.productsCount}/{limit === 999999 ? '∞' : limit}</span>
+                <span className="font-medium">
+                  {stats.productsCount}/{plan.maxProducts === Infinity ? "∞" : plan.maxProducts}
+                </span>
               </div>
             </div>
           </CardContent>
