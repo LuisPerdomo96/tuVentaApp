@@ -175,15 +175,14 @@ export default function PlansPage() {
             return (
               <Card
                 key={plan.id}
-                className={`relative ${plan.popular ? 'border-2 border-orange-500 shadow-lg' : ''} ${isCurrentPlan ? 'bg-green-50' : ''}`}
-              >
+                  className={`relative overflow-visible ${plan.popular ? 'border-2 border-orange-500 shadow-lg' : ''} ${isCurrentPlan ? 'bg-green-50' : ''}`}              >
                 {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-[5]">
                     <Badge className="bg-orange-500">Más Popular</Badge>
                   </div>
                 )}
                 {isCurrentPlan && (
-                  <div className="absolute -top-3 right-4">
+                   <div className="absolute -top-3 right-4 z-[5]">
                     <Badge className="bg-green-500">Plan Actual</Badge>
                   </div>
                 )}
