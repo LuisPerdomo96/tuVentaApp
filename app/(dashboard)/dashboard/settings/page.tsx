@@ -23,6 +23,7 @@ import {
   Lock,
 } from 'lucide-react'
 import Link from 'next/link'
+import { getPlan } from '@/lib/plans'
 import { useRouter } from 'next/navigation'
 
 // ========== TEMAS PREDEFINIDOS ==========
@@ -228,7 +229,7 @@ export default function SettingsPage() {
   }
 
   function applyTheme(theme: any) {
-    if (companyPlan === 'free') return
+    if (!getPlan(companyPlan).advancedCustomization) return
     
     setSelectedTheme(theme.id)
     setFormData({
@@ -285,7 +286,8 @@ export default function SettingsPage() {
     }
   }
 
-  const isFree = companyPlan === 'free'
+  const plan = getPlan(companyPlan)
+  const isFree = !plan.advancedCustomization
 
   if (loading || !isClient) {
     return (
@@ -310,7 +312,7 @@ export default function SettingsPage() {
             <p className="text-sm text-gray-600">Personaliza tu catálogo y datos de contacto</p>
           </div>
           <Badge className={isFree ? 'bg-gray-100 text-gray-800' : 'bg-gradient-to-r from-amber-400 to-orange-500 text-white'}>
-            {isFree ? 'Plan Gratuito' : 'Plan PRO'}
+            {plan.name}
           </Badge>
         </div>
       </header>
