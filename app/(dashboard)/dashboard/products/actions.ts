@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { getPlan, checkProductLimit } from '@/lib/plans'
+import { getPlan, checkProductLimit, checkImagesPerProduct } from '@/lib/plans'
 
 export async function createProduct(formData: FormData) {
   const supabase = await createClient()
@@ -48,6 +48,12 @@ export async function createProduct(formData: FormData) {
   const images = imagesString ? JSON.parse(imagesString) : []
 
   // 4. Validaciones
+  // 4a. Verificar límite de imágenes por producto (fuente única: lib/plans.ts)
+  const blockedImages = checkImagesPerProduct(plan, images.length)
+  if (blockedImages) {
+    return { error: blockedImages }
+  }
+
   if (!name || name.length < 3) {
     return { error: 'El nombre debe tener al menos 3 caracteres' }
   }
@@ -94,7 +100,7 @@ export async function updateProduct(id: string, formData: FormData) {
 
   const { data: company } = await supabase
     .from('companies')
-    .select('id')
+    .select('id, plan')
     .eq('owner_id', user.id)
     .single()
 
@@ -108,6 +114,13 @@ export async function updateProduct(id: string, formData: FormData) {
   const categoryId = formData.get('categoryId') as string
   const imagesString = formData.get('images') as string
   const images = imagesString ? JSON.parse(imagesString) : []
+
+   // Verificar límite de imágenes por producto (fuente única: lib/plans.ts)
+  const plan = getPlan(company.plan)
+  const blockedImages = checkImagesPerProduct(plan, images.length)
+  if (blockedImages) {
+    return { error: blockedImages }
+  }
 
   if (!name || name.length < 3) {
     return { error: 'El nombre debe tener al menos 3 caracteres' }
