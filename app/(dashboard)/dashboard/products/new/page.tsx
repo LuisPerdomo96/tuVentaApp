@@ -18,6 +18,7 @@ export default function NewProductPage() {
   const [showNewCategory, setShowNewCategory] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [images, setImages] = useState<string[]>([])
+  const [planId, setPlanId] = useState<string>('free')
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -29,7 +30,20 @@ export default function NewProductPage() {
 
   useEffect(() => {
     loadCategories()
+    loadPlan()
   }, [])
+
+  async function loadPlan() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: company } = await supabase
+      .from('companies')
+      .select('plan')
+      .eq('owner_id', user.id)
+      .single()
+    if (company) setPlanId(company.plan || 'free')
+  }
 
   async function loadCategories() {
     const supabase = createClient()
@@ -97,6 +111,9 @@ export default function NewProductPage() {
     }
   }
 
+  const plan = getPlan(planId)
+  const maxImages = plan.maxImagesPerProduct
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b sticky top-0 z-10">
@@ -138,7 +155,7 @@ export default function NewProductPage() {
                     </button>
                   </div>
                 ))}
-                {images.length < 5 && (
+                 {images.length < maxImages && (
                   <label className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-orange-500 transition-colors">
                     <Upload className="w-8 h-8 text-gray-400 mb-2" />
                     <span className="text-xs text-gray-600">Subir</span>
@@ -153,7 +170,12 @@ export default function NewProductPage() {
                 )}
               </div>
               <p className="text-xs text-gray-500">
-                {images.length}/5 imágenes subidas
+                {images.length}/{maxImages === Infinity ? '∞' : maxImages} imágenes subidas
+                {images.length >= maxImages && (
+                  <span className="ml-2 text-orange-600">
+                    (límite del plan {plan.name})
+                  </span>
+                )}
               </p>
             </CardContent>
           </Card>
