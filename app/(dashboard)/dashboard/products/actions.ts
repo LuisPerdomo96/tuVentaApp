@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { getPlan, checkProductLimit } from '@/lib/plans'
 
 export async function createProduct(formData: FormData) {
   const supabase = await createClient()
@@ -18,14 +19,8 @@ export async function createProduct(formData: FormData) {
 
   if (!company) return { error: 'Empresa no encontrada' }
 
-  // 2. VERIFICAR LÍMITE DEL PLAN
-  const planLimits: any = {
-    free: 10,
-    pro: 100,
-    enterprise: 999999,
-  }
-
-  const limit = planLimits[company.plan] || 10
+ // 2. VERIFICAR LÍMITE DEL PLAN (fuente única: lib/plans.ts)
+  const plan = getPlan(company.plan)
 
   // Contar productos actuales
   const { count: currentCount, error: countError } = await supabase
@@ -37,10 +32,9 @@ export async function createProduct(formData: FormData) {
     return { error: 'Error al verificar límite de productos' }
   }
 
-  if (currentCount && currentCount >= limit) {
-    return { 
-      error: `Has alcanzado el límite de ${limit} productos de tu plan ${company.plan.toUpperCase()}. Actualiza tu plan para agregar más productos.` 
-    }
+  const blocked = checkProductLimit(plan, currentCount || 0)
+  if (blocked) {
+    return { error: blocked }
   }
 
   // 3. Extraer datos

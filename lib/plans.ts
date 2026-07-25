@@ -78,3 +78,36 @@ export const supportLabel = (s: SupportLevel): string =>
 // Regla de negocio reutilizable (la usará el enforcement del servidor después)
 export const canAddProduct = (plan: PlanDef, currentCount: number): boolean =>
   currentCount < plan.maxProducts
+// === ENFORCEMENT (server-side) — devuelven mensaje de error o null ===
+
+export const limitMessage = (plan: PlanDef, label: string, max: number): string =>
+  `Tu plan ${plan.name} permite hasta ${formatLimit(max)} ${label}. Mejorá tu plan para agregar más.`
+
+export const checkProductLimit = (plan: PlanDef, current: number) =>
+  current >= plan.maxProducts ? limitMessage(plan, 'productos', plan.maxProducts) : null
+
+export const checkCategoryLimit = (plan: PlanDef, current: number) =>
+  current >= plan.maxCategories ? limitMessage(plan, 'categorías', plan.maxCategories) : null
+
+export const checkQrLimit = (plan: PlanDef, current: number) =>
+  current >= plan.maxQrCodes ? limitMessage(plan, 'códigos QR', plan.maxQrCodes) : null
+
+export const checkImagesPerProduct = (plan: PlanDef, current: number) =>
+  current >= plan.maxImagesPerProduct
+    ? `Tu plan ${plan.name} permite hasta ${plan.maxImagesPerProduct} imagen(es) por producto.`
+    : null
+
+export type PlanFeature =
+  | 'advancedCustomization' | 'customSlug' | 'installments'
+  | 'advancedStats' | 'advancedInventory'
+
+export const featureLabel: Record<PlanFeature, string> = {
+  advancedCustomization: 'personalización avanzada',
+  customSlug: 'slug / URL personalizada',
+  installments: 'apartados y abonos',
+  advancedStats: 'estadísticas avanzadas',
+  advancedInventory: 'inventario avanzado',
+}
+
+export const checkFeature = (plan: PlanDef, feature: PlanFeature) =>
+  plan[feature] ? null : `La función "${featureLabel[feature]}" no está incluida en el plan ${plan.name}.`
