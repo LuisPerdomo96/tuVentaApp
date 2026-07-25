@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Search, Edit, Trash2, Package, X, Crown } from 'lucide-react'
 import Link from 'next/link'
 import { deleteProduct } from './actions'
+import { getPlan, formatLimit, formatPrice, formatPeriod } from '@/lib/plans'
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([])
@@ -75,13 +76,7 @@ export default function ProductsPage() {
   }
 
   function handleNewProductClick() {
-    const planLimits: any = {
-      free: 10,
-      pro: 100,
-      enterprise: 999999,
-    }
-    const limit = planLimits[plan] || 10
-
+    const limit = getPlan(plan).maxProducts
     if (products.length >= limit) {
       setShowUpgradeModal(true)
     } else {
@@ -95,12 +90,7 @@ export default function ProductsPage() {
     return matchesSearch && matchesCategory
   })
 
-  const planLimits: any = {
-    free: 10,
-    pro: 100,
-    enterprise: 999999,
-  }
-  const limit = planLimits[plan] || 10
+   const limit = getPlan(plan).maxProducts
   const isAtLimit = products.length >= limit
 
   if (loading) {
@@ -124,7 +114,7 @@ export default function ProductsPage() {
             <p className="text-sm text-gray-600">
               Gestiona tu catálogo • 
               <span className={`font-medium ${isAtLimit ? 'text-red-600' : 'text-orange-600'}`}>
-                {' '}{products.length}/{limit === 999999 ? '∞' : limit} productos
+                 {' '}{products.length}/{formatLimit(limit)} productos
               </span>
             </p>
           </div>
@@ -310,7 +300,7 @@ export default function ProductsPage() {
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center gap-2">
                     <span className="text-green-500">✓</span>
-                    <span><strong>100 productos</strong> (10x más)</span>
+                    <span><strong>{formatLimit(getPlan('pro').maxProducts)} productos</strong></span>
                   </li>
                   <li className="flex items-center gap-2">
                     <span className="text-green-500">✓</span>
@@ -333,9 +323,8 @@ export default function ProductsPage() {
 
               <div className="text-center mb-4">
                 <p className="text-sm text-gray-600">Solo</p>
-                <p className="text-3xl font-bold text-orange-600">$15<span className="text-sm text-gray-600">/mes</span></p>
-              </div>
-
+                <p className="text-3xl font-bold text-orange-600">{formatPrice(getPlan('pro'))}<span className="text-sm text-gray-600">{formatPeriod(getPlan('pro').billing)}</span></p>
+                </div>
               <div className="flex gap-3">
                 <Button
                   variant="outline"
