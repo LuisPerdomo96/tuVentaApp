@@ -281,3 +281,51 @@ export async function uploadProductImage(file: FormData) {
 
   return { success: true, url: publicUrl }
 }
+// Crear categoría DESDE la pantalla /categories, con enforcement de límite por plan
+export async function createCategoryFromPage(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autorizado' }
+
+  const { data: company } = await supabase
+    .from('companies')
+    .select('id, plan')
+    .eq('owner_id', user.id)
+    .single()
+  if (!company) return { error: 'Empresa no encontrada' }
+
+  // Enforcement: límite de categorías por plan (fuente única: lib/plans.ts)
+  const plan = getPlan(company.plan)
+  const { count: catCount, error: countErr } = await supabase
+    .from('categories')
+    .select('*', { count: 'exact', head: true })
+    .eq('company_id', company.id)
+  if (countErr) return { error: 'Error al verificar límite de categorías' }
+  const blocked = checkCategoryLimit(plan, catCount || 0)
+  if (blocked) return { error: blocked }
+
+  const name = formData.get('name') as string
+  const color = (formData.get('color') as string) || '#F97316'
+  const isActive = formData.get('is_active') === 'true'
+
+  if (!name || name.trim().length < 2) {
+    return { error: 'El nombre de la categoría es muy corto' }
+  }
+
+  const { data, error } = await supabase
+    .from('categories')
+    .insert({
+      company_id: company.id,
+      name: name.trim(),
+      color,
+      is_active: isActive,
+    })
+    .select()
+    .single()
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/products/categories')
+  revalidatePath('/dashboard/products')
+  return { success: true, categoryId: data.id }
+}

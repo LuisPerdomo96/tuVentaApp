@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Plus, Edit2, Trash2, Package, Loader2, X, Check } from 'lucide-react'
 import Link from 'next/link'
+import { createCategoryFromPage } from '../actions'
 
 interface Category {
   id: string
@@ -66,19 +67,19 @@ export default function CategoriesPage() {
     e.preventDefault()
     setSaving(true)
 
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { data: company } = await supabase
-      .from('companies')
-      .select('id')
-      .eq('owner_id', user.id)
-      .single()
-
-    if (!company) return
-
     if (editingCategory) {
+      // EDITAR: update directo (no afecta límites; protegido por RLS del dueño)
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { setSaving(false); return }
+
+      const { data: company } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('owner_id', user.id)
+        .single()
+      if (!company) { setSaving(false); return }
+
       const { error } = await supabase
         .from('categories')
         .update({
@@ -89,35 +90,33 @@ export default function CategoriesPage() {
         .eq('id', editingCategory.id)
         .eq('company_id', company.id)
 
+      setSaving(false)
       if (error) {
         alert('Error al actualizar: ' + error.message)
-      } else {
-        alert('✅ Categoría actualizada')
+        return
       }
+      alert('✅ Categoría actualizada')
     } else {
-      const { error } = await supabase
-        .from('categories')
-        .insert({
-          company_id: company.id,
-          name: formData.name,
-          color: formData.color,
-          is_active: formData.is_active,
-        })
+      // CREAR: server action con enforcement de límite por plan
+      const form = new FormData()
+      form.append('name', formData.name)
+      form.append('color', formData.color)
+      form.append('is_active', String(formData.is_active))
 
-      if (error) {
-        alert('Error al crear: ' + error.message)
-      } else {
-        alert('✅ Categoría creada')
+      const result = await createCategoryFromPage(form)
+      setSaving(false)
+      if (result.error) {
+        alert('❌ ' + result.error)   // ← el candado del servidor habla acá
+        return                         // ← NO cierro el form para que veas tu texto
       }
+      alert('✅ Categoría creada')
     }
 
-    setSaving(false)
     setShowForm(false)
     setEditingCategory(null)
     setFormData({ name: '', color: '#F97316', is_active: true })
     loadCategories()
   }
-
   function handleEdit(category: Category) {
     setEditingCategory(category)
     setFormData({
