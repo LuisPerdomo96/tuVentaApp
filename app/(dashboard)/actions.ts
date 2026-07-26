@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getPlan } from '@/lib/plans'
+import { PLANS, daysForBilling, getPlan, type PlanId } from '@/lib/plans'
 
 // Función para convertir texto a slug válido
 function slugify(text: string): string {
@@ -108,9 +108,7 @@ export async function createCompany(formData: FormData) {
     // No retornamos error porque la empresa ya se creó
   }
 
-  // 9. Categorías por defecto según PLAN y tipo (fuente única: lib/plans.ts)
-  //    Las empresas nacen en plan gratuito → 1 categoría.
-  //    En Pro/Enterprise, un restaurant recibe 4 plantillas editables.
+
   const newPlan = getPlan('free') // plan con el que nace la empresa
   const fullDefaults = type === 'restaurant'
     ? ['Entradas', 'Platos Principales', 'Bebidas', 'Postres']
@@ -126,7 +124,7 @@ export async function createCompany(formData: FormData) {
       sort_order: i,
     })
   }
-  
+
   revalidatePath('/', 'layout')
   redirect('/dashboard')
 }
@@ -152,4 +150,65 @@ export async function checkSlugAvailability(slug: string) {
   }
 
   return { available: true, message: '¡Disponible!', slug: cleanSlug }
+}
+// =========================================================
+//  UPGRADE / CAMBIO DE PLAN  (server-side, seguro)
+// =========================================================
+export async function upgradePlan(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autorizado' }
+
+  const target = formData.get('plan') as string
+  const plan = PLANS[target as PlanId]
+  if (!plan) return { error: 'Plan no válido' }
+
+  const { data: company } = await supabase
+    .from('companies')
+    .select('id, plan, type')
+    .eq('owner_id', user.id)
+    .single()
+  if (!company) return { error: 'Empresa no encontrada' }
+  if (company.plan === plan.id) return { error: 'Ya tienes este plan' }
+
+  // Vencimiento según ciclo (free = sin vencimiento)
+  const expiresAt =
+    plan.billing === 'none'
+      ? null
+      : new Date(Date.now() + daysForBilling(plan.billing) * 24 * 60 * 60 * 1000).toISOString()
+
+  // Doble candado: solo el dueño de ESTA empresa puede cambiarla
+  const { error } = await supabase
+    .from('companies')
+    .update({ plan: plan.id, plan_expires_at: expiresAt })
+    .eq('id', company.id)
+    .eq('owner_id', user.id)
+  if (error) return { error: error.message }
+
+  // Sembrar plantillas de restaurant al subir a un plan con >1 categoría
+  if (plan.maxCategories > 1 && company.type === 'restaurant') {
+    const templates = ['Entradas', 'Platos Principales', 'Bebidas', 'Postres']
+    const { data: existing } = await supabase
+      .from('categories')
+      .select('name')
+      .eq('company_id', company.id)
+    const have = new Set((existing || []).map((c) => (c.name || '').toLowerCase()))
+    const room = Math.max(0, plan.maxCategories - (existing?.length || 0))
+    const toAdd = templates.filter((t) => !have.has(t.toLowerCase())).slice(0, room)
+    for (let i = 0; i < toAdd.length; i++) {
+      await supabase.from('categories').insert({
+        company_id: company.id,
+        name: toAdd[i],
+        color: '#F97316',
+        is_active: true,
+        sort_order: i,
+      })
+    }
+  }
+
+  revalidatePath('/dashboard')
+  revalidatePath('/dashboard/plans')
+  revalidatePath('/dashboard/products')
+  revalidatePath('/dashboard/products/categories')
+  return { success: true, plan: plan.id }
 }

@@ -13,11 +13,11 @@ import {
   formatLimit,
   formatPrice,
   formatPeriod,
-  daysForBilling,
   supportLabel,
   type PlanDef,
   type PlanId,
 } from '@/lib/plans'
+import { upgradePlan } from '../../actions'
 
 // Presentación (iconos/colores). Los NÚMEROS vienen de lib/plans, no de acá.
 const META: Record<PlanId, { icon: any; bg: string; fg: string }> = {
@@ -93,26 +93,15 @@ export default function PlansPage() {
     if (!confirm(`¿Confirmar cambio al plan ${planId.toUpperCase()}?`)) return
 
     setUpgrading(true)
-    const supabase = createClient()
+    const form = new FormData()
+    form.append('plan', planId)
 
-    // La fecha de expiración ahora respeta el CICLO del plan (mensual=30d, trimestral=90d)
-    const def = getPlan(planId)
-    const expiresAt =
-      def.billing === 'none'
-        ? null
-        : new Date(Date.now() + daysForBilling(def.billing) * 24 * 60 * 60 * 1000).toISOString()
-
-    // ⚠️ NOTA DE SEGURIDAD (pendiente): este update lo hace el cliente directo.
-    // Cuando conectemos el COBRO, esto pasará a una server action que valida el pago.
-    const { error } = await supabase
-      .from('companies')
-      .update({ plan: planId, plan_expires_at: expiresAt })
-      .eq('id', company.id)
-
+    // El cambio de plan ahora pasa por el SERVIDOR (valida dueño + siembra plantillas)
+    const result = await upgradePlan(form)
     setUpgrading(false)
 
-    if (error) {
-      alert('Error al actualizar plan: ' + error.message)
+    if (result.error) {
+      alert('❌ ' + result.error)
     } else {
       alert(`✅ Plan actualizado a ${planId.toUpperCase()}`)
       loadCompany()
