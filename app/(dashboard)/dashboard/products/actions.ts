@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { getPlan, checkProductLimit, checkImagesPerProduct } from '@/lib/plans'
+import { getPlan, checkProductLimit, checkImagesPerProduct, checkCategoryLimit } from '@/lib/plans'
 
 export async function createProduct(formData: FormData) {
   const supabase = await createClient()
@@ -188,11 +188,21 @@ export async function createCategory(formData: FormData) {
 
   const { data: company } = await supabase
     .from('companies')
-    .select('id')
+    .select('id, plan')
     .eq('owner_id', user.id)
     .single()
 
   if (!company) return { error: 'Empresa no encontrada' }
+
+  // Enforcement: límite de categorías por plan (fuente única: lib/plans.ts)
+  const plan = getPlan(company.plan)
+  const { count: catCount, error: countErr } = await supabase
+    .from('categories')
+    .select('*', { count: 'exact', head: true })
+    .eq('company_id', company.id)
+  if (countErr) return { error: 'Error al verificar límite de categorías' }
+  const blockedCat = checkCategoryLimit(plan, catCount || 0)
+  if (blockedCat) return { error: blockedCat }
 
   const name = formData.get('name') as string
   const color = formData.get('color') as string

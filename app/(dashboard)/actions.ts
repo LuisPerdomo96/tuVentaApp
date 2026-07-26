@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getPlan } from '@/lib/plans'
 
 // Función para convertir texto a slug válido
 function slugify(text: string): string {
@@ -83,6 +84,7 @@ export async function createCompany(formData: FormData) {
       slug,
       type,
       description: description?.trim() || null,
+      plan: 'free',
     })
     .select()
     .single()
@@ -106,10 +108,16 @@ export async function createCompany(formData: FormData) {
     // No retornamos error porque la empresa ya se creó
   }
 
-  // 9. Crear categorías por defecto según el tipo de negocio
-  const defaultCategories = type === 'restaurant' 
+  // 9. Categorías por defecto según PLAN y tipo (fuente única: lib/plans.ts)
+  //    Las empresas nacen en plan gratuito → 1 categoría.
+  //    En Pro/Enterprise, un restaurant recibe 4 plantillas editables.
+  const newPlan = getPlan('free') // plan con el que nace la empresa
+  const fullDefaults = type === 'restaurant'
     ? ['Entradas', 'Platos Principales', 'Bebidas', 'Postres']
     : ['General']
+  const defaultCategories = newPlan.id === 'free'
+    ? ['General']
+    : fullDefaults.slice(0, newPlan.maxCategories)
 
   for (let i = 0; i < defaultCategories.length; i++) {
     await supabase.from('categories').insert({
@@ -118,7 +126,7 @@ export async function createCompany(formData: FormData) {
       sort_order: i,
     })
   }
-
+  
   revalidatePath('/', 'layout')
   redirect('/dashboard')
 }
