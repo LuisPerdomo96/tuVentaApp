@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { getSalesStats, exportToCSV } from './actions'
+import { createClient } from '@/lib/supabase/client'
+import { getPlan } from '@/lib/plans'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -13,7 +15,8 @@ import {
   Package, 
   Download,
   Loader2,
-  Calendar
+  Calendar,
+  Crown
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -22,10 +25,27 @@ export default function StatsPage() {
   const [period, setPeriod] = useState<'7days' | '30days' | '3months'>('7days')
   const [stats, setStats] = useState<any>(null)
   const [exporting, setExporting] = useState(false)
+  const [planId, setPlanId] = useState<string | null>(null)
 
   useEffect(() => {
     loadStats()
   }, [period])
+
+  useEffect(() => {
+    loadPlan()
+  }, [])
+
+  async function loadPlan() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data: company } = await supabase
+      .from('companies')
+      .select('plan')
+      .eq('owner_id', user.id)
+      .single()
+    if (company) setPlanId(company.plan || 'free')
+  }
 
   async function loadStats() {
     setLoading(true)
@@ -50,6 +70,31 @@ export default function StatsPage() {
       window.URL.revokeObjectURL(url)
     }
     setExporting(false)
+  }
+
+  const plan = getPlan(planId)
+  const premiumLocked = !!planId && !plan.advancedStats
+
+  if (premiumLocked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 flex items-center justify-center shadow-lg">
+            <Crown className="w-8 h-8 text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Sección del Plan Pro</h2>
+          <p className="text-gray-600 mb-6">
+            Ventas, Clientes e Inventario son funciones avanzadas disponibles desde el <strong>Plan Pro</strong>.
+          </p>
+          <Link href="/dashboard/plans">
+            <Button className="bg-gradient-to-r from-amber-400 to-orange-500 text-white hover:opacity-90">
+              <Crown className="w-4 h-4 mr-2" />
+              Ver Planes
+            </Button>
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {

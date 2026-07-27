@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { getPlan } from '@/lib/plans'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Package, AlertTriangle, XCircle, DollarSign, Search, Edit2, Loader2 } from 'lucide-react'
+import { ArrowLeft, Package, AlertTriangle, XCircle, DollarSign, Search, Edit2, Loader2, Crown } from 'lucide-react'
 import Link from 'next/link'
 
 export default function InventoryPage() {
@@ -20,6 +21,7 @@ export default function InventoryPage() {
     total_value: 0,
   })
   const [searchTerm, setSearchTerm] = useState('')
+  const [planId, setPlanId] = useState<string | null>(null)
 
   useEffect(() => {
     loadInventory()
@@ -32,11 +34,12 @@ export default function InventoryPage() {
 
     const { data: company } = await supabase
       .from('companies')
-      .select('id')
+      .select('id, plan')
       .eq('owner_id', user.id)
       .single()
 
     if (!company) return
+    setPlanId(company.plan || 'free')
 
     // Cargar productos
     const { data: productsData } = await supabase
@@ -69,6 +72,31 @@ export default function InventoryPage() {
   const filteredProducts = products.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  const plan = getPlan(planId)
+  const premiumLocked = !!planId && !plan.advancedStats
+
+  if (premiumLocked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+        <div className="text-center max-w-md">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 flex items-center justify-center shadow-lg">
+            <Crown className="w-8 h-8 text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Sección del Plan Pro</h2>
+          <p className="text-gray-600 mb-6">
+            Ventas, Clientes e Inventario son funciones avanzadas disponibles desde el <strong>Plan Pro</strong>.
+          </p>
+          <Link href="/dashboard/plans">
+            <Button className="bg-gradient-to-r from-amber-400 to-orange-500 text-white hover:opacity-90">
+              <Crown className="w-4 h-4 mr-2" />
+              Ver Planes
+            </Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   if (loading) {
     return (
