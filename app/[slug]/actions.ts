@@ -197,92 +197,44 @@ export async function registerClientPayment(formData: FormData) {
       return { error: 'Datos inválidos' }
     }
 
-    // Verificar que el pedido existe
+    // Validaciones de UX (solo lectura); la VERDAD del cobro la aplica el RPC.
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('*')
+      .select('id, customer_phone, payment_type, pending_amount, remaining_balance')
       .eq('id', orderId)
       .single()
 
-    if (orderError || !order) {
-      return { error: 'Pedido no encontrado' }
-    }
-
-    // Verificar que el teléfono coincide
-    if (order.customer_phone !== customerPhone) {
-      return { error: 'El teléfono no coincide con el pedido' }
-    }
-
-    // Verificar que sea un apartado
-    if (order.payment_type !== 'installment') {
-      return { error: 'Este pedido no es un apartado' }
-    }
-
-    // Verificar que aún tenga saldo pendiente
-    const currentPending = order.pending_amount || order.remaining_balance || 0
-    if (currentPending <= 0) {
+    if (orderError || !order) return { error: 'Pedido no encontrado' }
+    if (order.customer_phone !== customerPhone) return { error: 'El teléfono no coincide con el pedido' }
+    if (order.payment_type !== 'installment') return { error: 'Este pedido no es un apartado' }
+    if ((order.pending_amount || order.remaining_balance || 0) <= 0) {
       return { error: 'Este pedido ya está completamente pagado' }
     }
 
-    // Verificar que el monto no exceda el pendiente
-    if (amount > currentPending) {
-      return { error: `El monto no puede exceder $${currentPending.toFixed(2)}` }
+    // Cobro atómico en el servidor: insert en order_payments + recálculo con tope,
+    // validando por el teléfono del cliente (SECURITY DEFINER). Ya NO se updatea
+    // 'orders' desde el navegador (eso lo frenaba el RLS y desincronizaba el pedido).
+    const { data, error } = await supabase.rpc('record_order_payment', {
+      p_order_id: orderId,
+      p_amount: amount,
+      p_method: paymentMethod || null,
+      p_reference: paymentReference || null,
+      p_screenshot_url: paymentScreenshotUrl || null,
+      p_notes: notes || null,
+      p_customer_phone: customerPhone,
+    })
+
+    if (error) return { error: error.message }
+    if (data && (data as any).ok === false) {
+      return { error: (data as any).error || 'Error al registrar el pago' }
     }
 
-    // Calcular nuevos montos
-    const currentPaid = order.paid_amount || order.initial_payment || 0
-    const newPaidAmount = currentPaid + amount
-    const newPendingAmount = Math.max(0, order.total_usd - newPaidAmount)
-
-    // Determinar nuevo status
-    let newStatus = order.status
-    if (newPendingAmount <= 0) {
-      newStatus = 'installment_completed'
-    } else if (order.status === 'payment_review') {
-      newStatus = 'installment_active'
-    }
-
-    // Registrar el pago
-    const { error: paymentError } = await supabase
-      .from('order_payments')
-      .insert({
-        order_id: orderId,
-        amount: amount,
-        payment_method: paymentMethod,
-        payment_reference: paymentReference || null,
-        payment_screenshot_url: paymentScreenshotUrl || null,
-        notes: notes || null,
-      })
-
-    if (paymentError) {
-      console.error('Error registrando pago:', paymentError)
-      return { error: 'Error al registrar el pago' }
-    }
-
-    // Actualizar el pedido
-    const { error: updateError } = await supabase
-      .from('orders')
-      .update({
-        paid_amount: newPaidAmount,
-        pending_amount: newPendingAmount,
-        remaining_balance: newPendingAmount,
-        status: newStatus,
-        last_payment_date: new Date().toISOString(),
-        installments_paid: (order.installments_paid || 0) + 1,
-      })
-      .eq('id', orderId)
-
-    if (updateError) {
-      console.error('Error actualizando pedido:', updateError)
-      return { error: 'Error al actualizar el pedido' }
-    }
-
-    return { 
-      success: true, 
+    return {
+      success: true,
       message: 'Abono registrado correctamente',
-      isFullyPaid: newPendingAmount <= 0,
-      newPendingAmount: newPendingAmount,
-      newPaidAmount: newPaidAmount
+      isFullyPaid: !!(data as any)?.fully_paid,
+      newPendingAmount: Number((data as any)?.pending ?? 0),
+      newPaidAmount: Number((data as any)?.paid ?? 0),
     }
   } catch (error: any) {
     console.error('Error en registerClientPayment:', error)
