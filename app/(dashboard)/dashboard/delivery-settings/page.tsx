@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft, Save, Loader2, Clock, Truck, Store, Utensils, DollarSign } from 'lucide-react'
+import { ArrowLeft, Save, Loader2, Clock, Truck, Store, Utensils, DollarSign, Crown, Lock } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { Badge } from '@/components/ui/badge'
+import { getPlan } from '@/lib/plans'
 
 export default function DeliverySettingsPage() {
   const router = useRouter()
@@ -34,6 +36,12 @@ export default function DeliverySettingsPage() {
   ])
 
   const [is247, setIs247] = useState(false)
+  const [companyPlan, setCompanyPlan] = useState<string>('free')
+
+  // Fuente única: el flag 'installments' del plan decide si Apartado es editable.
+  // Free => installments=false => tarjeta desvanecida + PRO + candado (como en settings).
+  const plan = getPlan(companyPlan)
+  const installmentsLocked = !plan.installments
 
   useEffect(() => {
     loadData()
@@ -46,12 +54,13 @@ export default function DeliverySettingsPage() {
 
     const { data: company } = await supabase
       .from('companies')
-      .select('id, delivery_enabled, pickup_enabled, table_enabled, installment_enabled, min_initial_payment_percent, business_hours, is_open_24_7')
+      .select('id, plan, delivery_enabled, pickup_enabled, table_enabled, installment_enabled, min_initial_payment_percent, business_hours, is_open_24_7')
       .eq('owner_id', user.id)
       .single()
 
     if (company) {
       setCompanyId(company.id)
+      setCompanyPlan(company.plan || 'free')
       setEnabledTypes({
         delivery: company.delivery_enabled ?? true,
         pickup: company.pickup_enabled ?? true,
@@ -75,11 +84,13 @@ export default function DeliverySettingsPage() {
 
     const { error } = await supabase
       .from('companies')
-      .update({
+       .update({
         delivery_enabled: enabledTypes.delivery,
         pickup_enabled: enabledTypes.pickup,
         table_enabled: enabledTypes.table,
-        installment_enabled: enabledTypes.installment,
+        // Si el plan no incluye apartados, el servidor SIEMPRE recibe false
+        // (coherencia panel<->servidor, igual que los colores en settings).
+        installment_enabled: installmentsLocked ? false : enabledTypes.installment,
         min_initial_payment_percent: minInitialPayment,
         business_hours: hours,
         is_open_24_7: is247,
@@ -218,33 +229,66 @@ export default function DeliverySettingsPage() {
                 )}
               </label>
 
-              {/* APARTADO */}
-              <label className={`relative cursor-pointer border-2 rounded-lg p-4 transition-all ${
-                enabledTypes.installment ? 'border-orange-500 bg-orange-50' : 'border-gray-200'
+             {/* APARTADO (premium: desvanecido + PRO + candado si el plan no lo incluye) */}
+              <label className={`relative border-2 rounded-lg p-4 transition-all ${
+                installmentsLocked
+                  ? 'group opacity-75 cursor-not-allowed border-gray-200 bg-gray-50'
+                  : enabledTypes.installment
+                    ? 'cursor-pointer border-orange-500 bg-orange-50'
+                    : 'cursor-pointer border-gray-200 hover:border-orange-300'
               }`}>
                 <input
                   type="checkbox"
                   checked={enabledTypes.installment}
+                  disabled={installmentsLocked}
                   onChange={(e) => setEnabledTypes({...enabledTypes, installment: e.target.checked})}
                   className="sr-only"
                 />
                 <div className="flex flex-col items-center gap-2">
-                  <DollarSign className={`w-8 h-8 ${enabledTypes.installment ? 'text-orange-600' : 'text-gray-400'}`} />
+                  <DollarSign className={`w-8 h-8 ${!installmentsLocked && enabledTypes.installment ? 'text-orange-600' : 'text-gray-400'}`} />
                   <span className="font-medium">Apartado</span>
                   <span className="text-xs text-gray-600 text-center">Pago por cuotas</span>
                 </div>
-                {enabledTypes.installment && (
+                {!installmentsLocked && enabledTypes.installment && (
                   <div className="absolute top-2 right-2 w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
                     <span className="text-white text-xs">✓</span>
                   </div>
                 )}
+                {installmentsLocked && (
+                  <>
+                    <div className="absolute inset-0 bg-white/60 flex items-center justify-center rounded-lg">
+                      <Lock className="w-6 h-6 text-gray-400 transition-transform duration-300 group-hover:scale-110" />
+                    </div>
+                    <div className="absolute top-2 right-2 z-20">
+                      <Badge className="bg-gradient-to-r from-amber-400 to-orange-500 text-white gap-1 text-[10px] px-2 py-0.5 shadow-sm">
+                        <Crown className="w-3 h-3" />
+                        PRO
+                      </Badge>
+                    </div>
+                  </>
+                )}
               </label>
             </div>
 
-            {/* Configuración de Apartado */}
-            {enabledTypes.installment && (
-              <div className="mt-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                <h4 className="font-semibold text-orange-900 mb-2">️ Configuración del Apartado</h4>
+            {/* Configuración de Apartado (visible desvanecida + PRO si el plan no lo incluye) */}
+            {(enabledTypes.installment || installmentsLocked) && (
+              <div className={`relative mt-4 p-4 border rounded-lg ${
+                installmentsLocked
+                  ? 'opacity-75 bg-gray-50 border-gray-200'
+                  : 'bg-orange-50 border-orange-200'
+              }`}>
+                {installmentsLocked && (
+                  <div className="absolute top-2 right-2">
+                    <Badge className="bg-gradient-to-r from-amber-400 to-orange-500 text-white gap-1 text-[10px] px-2 py-0.5 shadow-sm">
+                      <Crown className="w-3 h-3" />
+                      PRO
+                    </Badge>
+                  </div>
+                )}
+                <h4 className={`font-semibold mb-2 flex items-center gap-2 ${installmentsLocked ? 'text-gray-700' : 'text-orange-900'}`}>
+                  {installmentsLocked && <Lock className="w-4 h-4 text-gray-400" />}
+                  Configuración del Apartado
+                </h4>
                 <div className="flex items-center gap-3">
                   <label className="text-sm text-gray-700">Pago inicial mínimo:</label>
                   <input
@@ -252,14 +296,30 @@ export default function DeliverySettingsPage() {
                     min="10"
                     max="90"
                     value={minInitialPayment}
+                    disabled={installmentsLocked}
                     onChange={(e) => setMinInitialPayment(parseInt(e.target.value) || 50)}
-                    className="w-20 px-2 py-1 border rounded text-sm"
+                    className="w-20 px-2 py-1 border rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <span className="text-sm text-gray-700">% del total</span>
                 </div>
                 <p className="text-xs text-gray-600 mt-2">
                   El cliente debe pagar al menos este porcentaje para apartar el producto.
                 </p>
+                {installmentsLocked && (
+                  <div className="mt-3 flex items-center justify-between gap-3 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <Crown className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                      <p className="text-xs text-amber-800">
+                        Los apartados y el pago por cuotas están disponibles desde el <strong>Plan Pro</strong>.
+                      </p>
+                    </div>
+                    <Link href="/dashboard/plans">
+                      <Button size="sm" className="bg-gradient-to-r from-amber-400 to-orange-500 text-white shrink-0">
+                        Ver Planes
+                      </Button>
+                    </Link>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
