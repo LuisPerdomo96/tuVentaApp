@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { PLANS, daysForBilling, getPlan, checkQrLimit, type PlanId } from '@/lib/plans'
+import { PLANS, daysForBilling, getPlan, checkQrLimit, DEFAULT_COMPANY_THEME, type PlanId } from '@/lib/plans'
 
 // Función para convertir texto a slug válido
 function slugify(text: string): string {
@@ -177,14 +177,25 @@ export async function upgradePlan(formData: FormData) {
       ? null
       : new Date(Date.now() + daysForBilling(plan.billing) * 24 * 60 * 60 * 1000).toISOString()
 
+  // Armamos el payload del cambio de plan
+  const updatePayload: any = { plan: plan.id, plan_expires_at: expiresAt }
+
+  // Si el plan destino NO incluye personalización avanzada (ej. Free),
+  // RESETEAMOS la cosmética a los predeterminados: la personalización es un
+  // beneficio que se paga; sin plan pago, el catálogo vuelve al tema base.
+  // (NO borra productos/pedidos/categorías: eso sigue protegido por la política C.)
+  if (!plan.advancedCustomization) {
+    Object.assign(updatePayload, DEFAULT_COMPANY_THEME)
+  }
+
   // Doble candado: solo el dueño de ESTA empresa puede cambiarla
   const { error } = await supabase
     .from('companies')
-    .update({ plan: plan.id, plan_expires_at: expiresAt })
+    .update(updatePayload)
     .eq('id', company.id)
     .eq('owner_id', user.id)
   if (error) return { error: error.message }
-
+  
   // Sembrar plantillas de restaurant al subir a un plan con >1 categoría
   if (plan.maxCategories > 1 && company.type === 'restaurant') {
     const templates = ['Entradas', 'Platos Principales', 'Bebidas', 'Postres']

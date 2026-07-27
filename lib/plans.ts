@@ -111,3 +111,18 @@ export const featureLabel: Record<PlanFeature, string> = {
 
 export const checkFeature = (plan: PlanDef, feature: PlanFeature) =>
   plan[feature] ? null : `La función "${featureLabel[feature]}" no está incluida en el plan ${plan.name}.`
+// === Tema predeterminado de la empresa (cosmética base) ===
+// Se aplica: (a) al crear empresa, (b) al bajar a un plan sin personalización
+// avanzada (ej. Free). DEBE coincidir con el SQL de limpieza y con el
+// estado inicial del formulario de settings.
+export const DEFAULT_COMPANY_THEME = {
+  primary_color: '#F97316',
+  secondary_color: '#EAB308',
+  accent_color: '#22C55E',
+  background_color: '#F9FAFB',
+  font_family: 'sans',
+  layout_type: 'grid',
+  show_prices: true,
+  show_descriptions: true,
+  show_images: true,
+} as const
