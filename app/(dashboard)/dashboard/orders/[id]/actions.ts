@@ -16,7 +16,7 @@ export async function registerInstallmentPayment(
 
   // Todo el cobro (insert + recálculo con tope) vive en el RPC del servidor.
   // p_customer_phone = null → valida por dueño (auth.uid() = owner).
-  const { data, error } = await supabase.rpc('record_order_payment', {
+    const { data, error } = await supabase.rpc('record_order_payment', {
     p_order_id: orderId,
     p_amount: amount,
     p_method: method || null,
@@ -24,6 +24,7 @@ export async function registerInstallmentPayment(
     p_screenshot_url: null,
     p_notes: notes || null,
     p_customer_phone: null,
+    p_auto_approve: true,   // el dueño cobra en mano => acredita al instante
   })
 
   if (error) return { error: error.message }
@@ -50,5 +51,36 @@ export async function getInstallmentHistory(orderId: string) {
     .eq('order_id', orderId)
     .order('created_at', { ascending: false })
 
-  return { success: true, data: payments || [] }
+return { success: true, data: payments || [] }
+}
+
+// Aprobar un abono pendiente (solo el dueño; el RPC valida ownership)
+export async function approvePayment(paymentId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autorizado' }
+
+  const { data, error } = await supabase.rpc('approve_order_payment', { p_payment_id: paymentId })
+  if (error) return { error: error.message }
+  if (data && (data as any).ok === false) return { error: (data as any).error || 'No se pudo aprobar' }
+
+  revalidatePath('/dashboard/orders', 'layout')
+  revalidatePath('/dashboard/customers')
+  return { success: true, fullyPaid: !!(data as any)?.fully_paid }
+}
+
+// Rechazar un abono pendiente (NO acredita; solo el dueño)
+export async function rejectPayment(paymentId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autorizado' }
+
+  const { data, error } = await supabase.rpc('reject_order_payment', { p_payment_id: paymentId })
+  if (error) return { error: error.message }
+  if (data && (data as any).ok === false) return { error: (data as any).error || 'No se pudo rechazar' }
+
+  revalidatePath('/dashboard/orders', 'layout')
+  revalidatePath('/dashboard/customers')
+  return { success: true }
+
 }

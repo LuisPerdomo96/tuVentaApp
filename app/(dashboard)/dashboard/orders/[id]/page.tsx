@@ -478,6 +478,7 @@ function InstallmentSection({ orderId, order, onStatusChange }: any) {
   const [loading, setLoading] = useState(false)
   const [installments, setInstallments] = useState<any[]>([])
   const [showForm, setShowForm] = useState(false)
+  const [reviewingId, setReviewingId] = useState<string | null>(null)
 
   useEffect(() => {
     loadInstallments()
@@ -523,10 +524,33 @@ function InstallmentSection({ orderId, order, onStatusChange }: any) {
     }
   }
 
- const sumPayments = installments.reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0)
+const approvedPayments = installments.filter((p: any) => (p.status || 'approved') === 'approved')
+  const sumPayments = approvedPayments.reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0)
+  const inReviewAmount = installments.filter((p: any) => p.status === 'pending').reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0)
+  const rejectedAmount = installments.filter((p: any) => p.status === 'rejected').reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0)
   const paidAmount = Math.min(order.total_usd, (order.initial_payment || 0) + sumPayments)
   const pendingAmount = Math.max(0, order.total_usd - ((order.initial_payment || 0) + sumPayments))
   const percentPaid = order.total_usd > 0 ? (paidAmount / order.total_usd) * 100 : 0
+
+  async function handleApprove(paymentId: string) {
+    if (!confirm('¿Aprobar este pago y acreditarlo al pedido?')) return
+    setReviewingId(paymentId)
+    const { approvePayment } = await import('./actions')
+    const result = await approvePayment(paymentId)
+    setReviewingId(null)
+    if (result.error) { alert('❌ ' + result.error); return }
+    loadInstallments(); onStatusChange()
+  }
+
+  async function handleReject(paymentId: string) {
+    if (!confirm('¿Rechazar este pago? NO se acreditará al pedido.')) return
+    setReviewingId(paymentId)
+    const { rejectPayment } = await import('./actions')
+    const result = await rejectPayment(paymentId)
+    setReviewingId(null)
+    if (result.error) { alert('❌ ' + result.error); return }
+    loadInstallments(); onStatusChange()
+  }
 
   // Timeline VISUAL unificado: pago inicial (del pedido) + abonos (order_payments),
   // ordenados por fecha. SOLO presentación: no toca datos ni el motor de cobro.
@@ -581,17 +605,28 @@ function InstallmentSection({ orderId, order, onStatusChange }: any) {
             <p className="text-xs text-gray-600">Pagado</p>
             <p className="text-lg font-bold text-blue-600">${paidAmount.toFixed(2)}</p>
           </div>
-          <div className="bg-red-50 rounded-lg p-3">
+           <div className="bg-red-50 rounded-lg p-3">
             <p className="text-xs text-gray-600">Pendiente</p>
             <p className="text-lg font-bold text-red-600">${pendingAmount.toFixed(2)}</p>
           </div>
         </div>
 
+        {(inReviewAmount > 0 || rejectedAmount > 0) && (
+          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            {inReviewAmount > 0 && (
+              <span className="px-2 py-1 rounded bg-yellow-100 text-yellow-800 font-semibold">⏳ ${inReviewAmount.toFixed(2)} en revisión (no acreditado)</span>
+            )}
+            {rejectedAmount > 0 && (
+              <span className="px-2 py-1 rounded bg-red-100 text-red-800 font-semibold">❌ ${rejectedAmount.toFixed(2)} rechazado</span>
+            )}
+          </div>
+        )}
+
         {paymentTimeline.length > 0 && (
           <div>
             <h4 className="font-semibold text-sm mb-2">Historial de Pagos:</h4>
             <div className="space-y-2">
-              {paymentTimeline.map((row: any) => (
+                            {paymentTimeline.map((row: any) => (
                 <div
                   key={row.id}
                   className={`p-2 rounded text-sm border ${
@@ -625,6 +660,16 @@ function InstallmentSection({ orderId, order, onStatusChange }: any) {
                     >
                       📸 Ver comprobante
                     </a>
+                  )}
+                  {!row.isInitial && row.status === 'pending' && (
+                    <div className="mt-2 flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-semibold text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded">⏳ En revisión</span>
+                      <button type="button" disabled={reviewingId === row.id} onClick={() => handleApprove(row.id)} className="text-xs px-2 py-1 rounded bg-green-600 text-white disabled:opacity-50">✅ Aprobar</button>
+                      <button type="button" disabled={reviewingId === row.id} onClick={() => handleReject(row.id)} className="text-xs px-2 py-1 rounded bg-red-600 text-white disabled:opacity-50">❌ Rechazar</button>
+                    </div>
+                  )}
+                  {!row.isInitial && row.status === 'rejected' && (
+                    <div className="mt-2"><span className="text-xs font-semibold text-red-700 bg-red-100 px-2 py-0.5 rounded">❌ Rechazado (no acreditado)</span></div>
                   )}
                 </div>
               ))}
