@@ -359,8 +359,8 @@ export default function OrderDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Información de Pago */}
-        {order.payment_reference && (
+        {/* Información de Pago (solo pagos NO‑apartado; en apartados el inicial ya está en el historial) */}
+        {order.payment_reference && order.payment_type !== 'installment' && (
           <Card className="border-l-4 border-l-green-500">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
@@ -523,10 +523,29 @@ function InstallmentSection({ orderId, order, onStatusChange }: any) {
     }
   }
 
-  const sumPayments = installments.reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0)
+ const sumPayments = installments.reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0)
   const paidAmount = Math.min(order.total_usd, (order.initial_payment || 0) + sumPayments)
   const pendingAmount = Math.max(0, order.total_usd - ((order.initial_payment || 0) + sumPayments))
   const percentPaid = order.total_usd > 0 ? (paidAmount / order.total_usd) * 100 : 0
+
+  // Timeline VISUAL unificado: pago inicial (del pedido) + abonos (order_payments),
+  // ordenados por fecha. SOLO presentación: no toca datos ni el motor de cobro.
+  const initialRow = (order.initial_payment || 0) > 0
+    ? [{
+        id: 'initial',
+        amount: order.initial_payment,
+        created_at: order.created_at,
+        payment_reference: order.payment_reference || null,
+        payment_screenshot_url: order.payment_screenshot_url || null,
+        payment_method: null,
+        notes: null,
+        isInitial: true,
+      }]
+    : []
+  const abonoRows = installments.map((p: any) => ({ ...p, isInitial: false }))
+  const paymentTimeline = [...initialRow, ...abonoRows].sort(
+    (a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  )
 
   return (
     <Card className="border-l-4 border-l-purple-500">
@@ -568,21 +587,44 @@ function InstallmentSection({ orderId, order, onStatusChange }: any) {
           </div>
         </div>
 
-        {installments.length > 0 && (
+        {paymentTimeline.length > 0 && (
           <div>
             <h4 className="font-semibold text-sm mb-2">Historial de Pagos:</h4>
             <div className="space-y-2">
-              {installments.map((inst: any) => (
-                <div key={inst.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
-                  <div>
-                    <p className="font-medium">${inst.amount.toFixed(2)}</p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(inst.created_at).toLocaleDateString('es-VE')}
-                      {inst.payment_reference && ` • Ref: ${inst.payment_reference}`}
-                    </p>
+              {paymentTimeline.map((row: any) => (
+                <div
+                  key={row.id}
+                  className={`p-2 rounded text-sm border ${
+                    row.isInitial ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">
+                        ${Number(row.amount).toFixed(2)}
+                        {row.isInitial && (
+                          <span className="ml-2 text-xs font-semibold text-green-700">💵 Pago inicial</span>
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(row.created_at).toLocaleDateString('es-VE')}
+                        {row.payment_method && ` • ${row.payment_method}`}
+                        {row.payment_reference && ` • Ref: ${row.payment_reference}`}
+                      </p>
+                    </div>
+                    {row.notes && (
+                      <p className="text-xs text-gray-500 italic">{row.notes}</p>
+                    )}
                   </div>
-                  {inst.notes && (
-                    <p className="text-xs text-gray-500 italic">{inst.notes}</p>
+                  {row.payment_screenshot_url && (
+                    <a
+                      href={row.payment_screenshot_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                    >
+                      📸 Ver comprobante
+                    </a>
                   )}
                 </div>
               ))}
