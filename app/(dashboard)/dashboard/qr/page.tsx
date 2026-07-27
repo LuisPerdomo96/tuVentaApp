@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react'
+import { addTableQr } from '../../actions'
 import { 
   QrCode, 
   Download, 
@@ -66,26 +67,17 @@ export default function QRPage() {
   async function addTable() {
     if (!newTableNumber.trim() || !company) return
 
-    // Verificar que no exista
-    if (tables.some(t => t.table_number === newTableNumber.trim())) {
-      alert('Ya existe una mesa con ese número')
+    // La creación del QR de mesa pasa por el SERVIDOR (valida dueño + límite por plan)
+    const form = new FormData()
+    form.append('table_number', newTableNumber.trim())
+
+    const result = await addTableQr(form)
+    if (result.error) {
+      alert('❌ ' + result.error)
       return
     }
-
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('table_qrs')
-      .insert({
-        company_id: company.id,
-        table_number: newTableNumber.trim(),
-      })
-
-    if (error) {
-      alert('Error: ' + error.message)
-    } else {
-      setNewTableNumber('')
-      loadData()
-    }
+    setNewTableNumber('')
+    loadData()
   }
 
   async function deleteTable(id: string) {

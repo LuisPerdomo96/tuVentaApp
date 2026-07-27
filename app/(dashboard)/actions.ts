@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { PLANS, daysForBilling, getPlan, type PlanId } from '@/lib/plans'
+import { PLANS, daysForBilling, getPlan, checkQrLimit, type PlanId } from '@/lib/plans'
 
 // Función para convertir texto a slug válido
 function slugify(text: string): string {
@@ -211,4 +211,49 @@ export async function upgradePlan(formData: FormData) {
   revalidatePath('/dashboard/products')
   revalidatePath('/dashboard/products/categories')
   return { success: true, plan: plan.id }
+}
+// =========================================================
+//  AGREGAR QR DE MESA  (server-side, con límite por plan)
+// =========================================================
+export async function addTableQr(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autorizado' }
+
+  const { data: company } = await supabase
+    .from('companies')
+    .select('id, plan')
+    .eq('owner_id', user.id)
+    .single()
+  if (!company) return { error: 'Empresa no encontrada' }
+
+  const tableNumber = (formData.get('table_number') as string)?.trim()
+  if (!tableNumber) return { error: 'Ingresa un número de mesa' }
+
+  // Enforcement: límite de QR/mesas por plan (fuente única: lib/plans.ts)
+  const plan = getPlan(company.plan)
+  const { count: qrCount, error: countErr } = await supabase
+    .from('table_qrs')
+    .select('*', { count: 'exact', head: true })
+    .eq('company_id', company.id)
+  if (countErr) return { error: 'Error al verificar límite de QR' }
+  const blocked = checkQrLimit(plan, qrCount || 0)
+  if (blocked) return { error: blocked }
+
+  // Evitar mesa duplicada (ahora validado en el servidor)
+  const { data: dup } = await supabase
+    .from('table_qrs')
+    .select('id')
+    .eq('company_id', company.id)
+    .eq('table_number', tableNumber)
+    .maybeSingle()
+  if (dup) return { error: 'Ya existe una mesa con ese número' }
+
+  const { error } = await supabase
+    .from('table_qrs')
+    .insert({ company_id: company.id, table_number: tableNumber })
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard/qr')
+  return { success: true }
 }
