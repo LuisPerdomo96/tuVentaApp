@@ -7,6 +7,8 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { QrCode } from 'lucide-react'
 import { CreditCard } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { getPlan } from '@/lib/plans'
 import { 
   LayoutDashboard, 
   Package, 
@@ -19,6 +21,7 @@ import {
   Boxes,
   LogOut,
   Crown,
+  Lock,
   Menu,
   X
 } from 'lucide-react'
@@ -246,6 +249,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     )
   }
 
+ // Secciones premium del dashboard (Ventas/Clientes/Inventario): en Free se ven
+  // desvanecidas + PRO + candado y NO son clickeables. Hoy atado a advancedStats
+  // (false solo en Free); si mañana se separan, se crea un flag en lib/plans.
+  const plan = getPlan(company?.plan)
+  const premiumLocked = !plan.advancedStats
+
   const menuItems = [
     {
       group: 'Inicio',
@@ -263,16 +272,68 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     {
       group: 'General',
       items: [
-        { href: '/dashboard/stats', label: 'Ventas', icon: TrendingUp },
-        { href: '/dashboard/customers', label: 'Clientes', icon: Users },
-        { href: '/dashboard/inventory', label: 'Inventario', icon: Boxes },
+        { href: '/dashboard/stats', label: 'Ventas', icon: TrendingUp, premium: true },
+        { href: '/dashboard/customers', label: 'Clientes', icon: Users, premium: true },
+        { href: '/dashboard/inventory', label: 'Inventario', icon: Boxes, premium: true },
       ]
     }
   ]
 
-  const isActive = (href: string) => {
+   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard'
     return pathname.startsWith(href)
+  }
+
+  // Render de un item del sidebar: si es premium y el plan lo bloquea => molde
+  // "desvanecido + PRO + candado + sin link"; si no => Link normal. onNavigate
+  // cierra el drawer en el sidebar móvil.
+  function renderMenuItem(item: any, onNavigate?: () => void) {
+    const Icon = item.icon
+    const active = isActive(item.href)
+    const locked = !!item.premium && premiumLocked
+
+    if (locked) {
+      return (
+        <div
+          key={item.href}
+          onClick={onNavigate}
+          className="group relative flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-sm font-medium opacity-60 cursor-not-allowed select-none"
+        >
+          <div className="flex items-center gap-3 text-gray-400">
+            <Icon className="w-5 h-5" />
+            {item.label}
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge className="bg-gradient-to-r from-amber-400 to-orange-500 text-white gap-1 text-[10px] px-2 py-0.5 shadow-sm">
+              <Crown className="w-3 h-3" />
+              PRO
+            </Badge>
+            <Lock className="w-4 h-4 text-gray-400 transition-transform duration-300 group-hover:scale-110" />
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={onNavigate}
+        className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+          active ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100'
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <Icon className="w-5 h-5" />
+          {item.label}
+        </div>
+        {item.badge && item.badge > 0 && (
+          <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+            {item.badge}
+          </span>
+        )}
+      </Link>
+    )
   }
 
   return (
@@ -309,31 +370,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {group.group}
               </p>
               <div className="space-y-1">
-                {group.items.map(item => {
-                  const Icon = item.icon
-                  const active = isActive(item.href)
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        active
-                          ? 'bg-gray-900 text-white'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Icon className="w-5 h-5" />
-                        {item.label}
-                      </div>
-                      {item.badge && item.badge > 0 && (
-                        <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                          {item.badge}
-                        </span>
-                      )}
-                    </Link>
-                  )
-                })}
+                 {group.items.map(item => renderMenuItem(item))}
               </div>
             </div>
           ))}
@@ -388,32 +425,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     {group.group}
                   </p>
                   <div className="space-y-1">
-                    {group.items.map(item => {
-                      const Icon = item.icon
-                      const active = isActive(item.href)
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={() => setSidebarOpen(false)}
-                          className={`flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            active
-                              ? 'bg-gray-900 text-white'
-                              : 'text-gray-700 hover:bg-gray-100'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <Icon className="w-5 h-5" />
-                            {item.label}
-                          </div>
-                          {item.badge && item.badge > 0 && (
-                            <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                              {item.badge}
-                            </span>
-                          )}
-                        </Link>
-                      )
-                    })}
+                   {group.items.map(item => renderMenuItem(item, () => setSidebarOpen(false)))}
                   </div>
                 </div>
               ))}
