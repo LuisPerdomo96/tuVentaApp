@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { getPlan } from '@/lib/plans'
+import { saveCompanySettings } from '../../actions'
 import { useRouter } from 'next/navigation'
 
 // ========== TEMAS PREDEFINIDOS ==========
@@ -246,40 +247,28 @@ export default function SettingsPage() {
     if (!companyId) return
 
     setSaving(true)
-    const supabase = createClient()
 
-    // Solo actualizamos campos que SÍ existen en la BD
-    // Filtramos los que podrían no existir
-    const updateData: any = {
-      name: formData.name,
-      description: formData.description,
-      whatsapp_number: formData.whatsapp_number,
-      primary_color: formData.primary_color,
-      secondary_color: formData.secondary_color,
-      accent_color: formData.accent_color,
-    }
+    // El guardado pasa por el SERVIDOR, que decide qué campos aplica según el plan
+    const form = new FormData()
+    form.append('name', formData.name)
+    form.append('description', formData.description)
+    form.append('whatsapp_number', formData.whatsapp_number)
+    form.append('email', formData.email || '')
+    form.append('primary_color', formData.primary_color)
+    form.append('secondary_color', formData.secondary_color)
+    form.append('accent_color', formData.accent_color)
+    form.append('background_color', formData.background_color)
+    form.append('font_family', formData.font_family)
+    form.append('layout_type', formData.layout_type)
+    form.append('show_prices', String(formData.show_prices))
+    form.append('show_descriptions', String(formData.show_descriptions))
+    form.append('show_images', String(formData.show_images))
 
-    // Solo agregar si tienen valor
-    if (formData.email) updateData.email = formData.email
-    if (formData.background_color) updateData.background_color = formData.background_color
-    if (formData.font_family) updateData.font_family = formData.font_family
-    if (formData.layout_type) updateData.layout_type = formData.layout_type
-
-    // Booleanos
-    updateData.show_prices = formData.show_prices
-    updateData.show_descriptions = formData.show_descriptions
-    updateData.show_images = formData.show_images
-
-    const { error } = await supabase
-      .from('companies')
-      .update(updateData)
-      .eq('id', companyId)
-
+    const result = await saveCompanySettings(form)
     setSaving(false)
 
-    if (error) {
-      console.error('Error al guardar:', error)
-      alert('Error al guardar: ' + error.message)
+    if (result.error) {
+      alert('Error al guardar: ' + result.error)
     } else {
       alert('✅ Configuración guardada exitosamente')
       await loadCompanyData()

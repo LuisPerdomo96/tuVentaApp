@@ -257,3 +257,64 @@ export async function addTableQr(formData: FormData) {
   revalidatePath('/dashboard/qr')
   return { success: true }
 }
+// =========================================================
+//  GUARDAR CONFIGURACIÓN DE EMPRESA  (server-side, seguro)
+//  - campos básicos: siempre se guardan (todos los planes)
+//  - campos de personalización avanzada: SOLO si el plan lo permite;
+//    si no, el servidor los IGNORA (no los borra, no rebota el guardado)
+// =========================================================
+export async function saveCompanySettings(formData: FormData) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autorizado' }
+
+  const { data: company } = await supabase
+    .from('companies')
+    .select('id, plan')
+    .eq('owner_id', user.id)
+    .single()
+  if (!company) return { error: 'Empresa no encontrada' }
+
+  const plan = getPlan(company.plan)
+
+  // --- Campos básicos: permitidos en TODOS los planes ---
+  const name = (formData.get('name') as string)?.trim()
+  if (!name || name.length < 2) {
+    return { error: 'El nombre de la empresa es obligatorio' }
+  }
+
+  const updateData: any = {
+    name,
+    description: (formData.get('description') as string)?.trim() || null,
+    whatsapp_number: (formData.get('whatsapp_number') as string)?.trim() || null,
+  }
+  const email = (formData.get('email') as string)?.trim()
+  if (email) updateData.email = email
+
+  // --- Campos premium: SOLO si el plan tiene personalización avanzada ---
+  //     Si el plan NO la tiene, estos campos NO entran al update → quedan como estaban.
+  if (plan.advancedCustomization) {
+    const bg = (formData.get('background_color') as string)?.trim()
+    updateData.primary_color = formData.get('primary_color') as string
+    updateData.secondary_color = formData.get('secondary_color') as string
+    updateData.accent_color = formData.get('accent_color') as string
+    if (bg) updateData.background_color = bg
+    updateData.font_family = formData.get('font_family') as string
+    updateData.layout_type = formData.get('layout_type') as string
+    updateData.show_prices = formData.get('show_prices') === 'true'
+    updateData.show_descriptions = formData.get('show_descriptions') === 'true'
+    updateData.show_images = formData.get('show_images') === 'true'
+  }
+
+  // Doble candado: solo el dueño de ESTA empresa la modifica
+  const { error } = await supabase
+    .from('companies')
+    .update(updateData)
+    .eq('id', company.id)
+    .eq('owner_id', user.id)
+  if (error) return { error: error.message }
+
+  revalidatePath('/dashboard')
+  revalidatePath('/dashboard/settings')
+  return { success: true }
+}
