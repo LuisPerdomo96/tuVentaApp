@@ -523,8 +523,9 @@ function InstallmentSection({ orderId, order, onStatusChange }: any) {
     }
   }
 
-  const paidAmount = order.paid_amount || order.initial_payment || 0
-  const pendingAmount = order.pending_amount || order.remaining_balance || 0
+  const sumPayments = installments.reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0)
+  const paidAmount = Math.min(order.total_usd, (order.initial_payment || 0) + sumPayments)
+  const pendingAmount = Math.max(0, order.total_usd - ((order.initial_payment || 0) + sumPayments))
   const percentPaid = order.total_usd > 0 ? (paidAmount / order.total_usd) * 100 : 0
 
   return (

@@ -4,94 +4,51 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 export async function registerInstallmentPayment(
-  orderId: string, 
-  amount: number, 
+  orderId: string,
+  amount: number,
   reference?: string,
   method?: string,
   notes?: string
 ) {
   const supabase = await createClient()
-
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'No autorizado' }
 
-  // Obtener el pedido
-  const { data: order } = await supabase
-    .from('orders')
-    .select('*')
-    .eq('id', orderId)
-    .single()
+  // Todo el cobro (insert + recálculo con tope) vive en el RPC del servidor.
+  // p_customer_phone = null → valida por dueño (auth.uid() = owner).
+  const { data, error } = await supabase.rpc('record_order_payment', {
+    p_order_id: orderId,
+    p_amount: amount,
+    p_method: method || null,
+    p_reference: reference || null,
+    p_screenshot_url: null,
+    p_notes: notes || null,
+    p_customer_phone: null,
+  })
 
-  if (!order) return { error: 'Pedido no encontrado' }
-
-  // Verificar que pertenece a la empresa del usuario
-  const { data: company } = await supabase
-    .from('companies')
-    .select('id')
-    .eq('owner_id', user.id)
-    .eq('id', order.company_id)
-    .single()
-
-  if (!company) return { error: 'No tienes acceso a este pedido' }
-
-  // Calcular cuánto falta por pagar
-  const totalPaidSoFar = order.initial_payment + (order.installments_paid || 0)
-  const remaining = order.total_usd - totalPaidSoFar
-
-  if (amount > remaining) {
-    return { error: `El monto excede el saldo pendiente ($${remaining.toFixed(2)})` }
-  }
-
-  if (amount <= 0) {
-    return { error: 'El monto debe ser mayor a 0' }
-  }
-
-  // Registrar el pago parcial
-  const { error: insertError } = await supabase
-    .from('order_installments')
-    .insert({
-      order_id: orderId,
-      amount,
-      payment_reference: reference || null,
-      payment_method: method || null,
-      notes: notes || null,
-    })
-
-  if (insertError) return { error: insertError.message }
-
-  // Actualizar el pedido
-  const newInstallmentsPaid = (order.installments_paid || 0) + amount
-  const newRemainingBalance = order.total_usd - order.initial_payment - newInstallmentsPaid
-  const isFullyPaid = newRemainingBalance <= 0
-
-  const { error: updateError } = await supabase
-    .from('orders')
-    .update({
-      installments_paid: newInstallmentsPaid,
-      remaining_balance: newRemainingBalance,
-      status: isFullyPaid ? 'payment_approved' : order.status,
-    })
-    .eq('id', orderId)
-
-  if (updateError) return { error: updateError.message }
+  if (error) return { error: error.message }
+  if (data && (data as any).ok === false) return { error: (data as any).error || 'Error al registrar el pago' }
 
   revalidatePath(`/dashboard/orders/${orderId}`)
-  
-  return { 
-    success: true, 
-    isFullyPaid,
-    newRemainingBalance 
+  revalidatePath('/dashboard/orders')
+  revalidatePath('/dashboard/customers')
+
+  return {
+    success: true,
+    isFullyPaid: !!(data as any)?.fully_paid,
+    newRemainingBalance: Number((data as any)?.pending ?? 0),
   }
 }
 
 export async function getInstallmentHistory(orderId: string) {
   const supabase = await createClient()
 
-  const { data: installments } = await supabase
-    .from('order_installments')
+  // Fuente única de pagos: order_payments (la misma que usa el track-order del cliente)
+  const { data: payments } = await supabase
+    .from('order_payments')
     .select('*')
     .eq('order_id', orderId)
-    .order('paid_at', { ascending: false })
+    .order('created_at', { ascending: false })
 
-  return { success: true, data: installments || [] }
+  return { success: true, data: payments || [] }
 }
