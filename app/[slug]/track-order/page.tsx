@@ -329,11 +329,12 @@ Total: $${order.total_usd.toFixed(2)}`
       alert('❌ Error: ' + result.error)
     } else {
       if (result.isFullyPaid) {
-        alert('✅ ¡Pago completado! Tu apartado ha sido liquidado.')
+        alert('✅ ¡Tu apartado ha sido liquidado!')
       } else {
-        alert(`✅ Abono registrado. Saldo restante: $${result.newPendingAmount?.toFixed(2)}`)
+        // Sin saldo: el abono entra EN REVISIÓN y aún no acredita; mostrar un
+        // "saldo restante" aquí sería engañoso (contaría el pago que aún no aprobamos).
+        alert('✅ Tu pago fue registrado y está en revisión. El vendedor lo confirmará pronto.')
       }
-      
       setShowPaymentModal(false)
       setPaymentForm({
         amount: '',
@@ -366,10 +367,16 @@ Total: $${order.total_usd.toFixed(2)}`
   const primaryColor = company?.primary_color || '#F97316'
   const bgColor = company?.background_color || '#FDF8F5'
 
+  
   const isInstallment = order?.payment_type === 'installment'
   const paidAmount = order?.paid_amount || order?.initial_payment || 0
   const pendingAmount = order?.pending_amount || order?.remaining_balance || 0
   const percentPaid = order && order.total_usd > 0 ? (paidAmount / order.total_usd) * 100 : 0
+
+  // Derivados del historial (status por pago): para mostrar al cliente qué está
+  // en revisión / rechazado. Solo presentación; el RPC sigue siendo el cinturón.
+  const inReviewAmount = paymentHistory.filter((p: any) => p.status === 'pending').reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0)
+  const rejectedAmount = paymentHistory.filter((p: any) => p.status === 'rejected').reduce((s: number, p: any) => s + (Number(p.amount) || 0), 0)
 
   // ✅ Función para obtener el nombre del método
   function getMethodName(method: any) {
@@ -542,6 +549,18 @@ Total: $${order.total_usd.toFixed(2)}`
                     </div>
                   </div>
 
+                  {/* Nota de pagos en revisión / rechazados (derivada del historial) */}
+                  {(inReviewAmount > 0 || rejectedAmount > 0) && (
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      {inReviewAmount > 0 && (
+                        <span className="px-2 py-1 rounded bg-yellow-100 text-yellow-800 font-semibold">⏳ ${inReviewAmount.toFixed(2)} en revisión (el vendedor lo confirmará pronto)</span>
+                      )}
+                      {rejectedAmount > 0 && (
+                        <span className="px-2 py-1 rounded bg-red-100 text-red-800 font-semibold">❌ ${rejectedAmount.toFixed(2)} rechazado</span>
+                      )}
+                    </div>
+                  )}
+
                   {/* Historial de Pagos */}
                   {paymentHistory.length > 0 && (
                     <div>
@@ -550,24 +569,47 @@ Total: $${order.total_usd.toFixed(2)}`
                         Historial de Pagos
                       </h4>
                       <div className="space-y-2">
-                        {paymentHistory.map((payment) => (
+                                                {paymentHistory.map((payment) => {
+                          const pStatus = payment.status || 'approved'
+                          const amountColor =
+                            pStatus === 'pending' ? 'text-yellow-700' :
+                            pStatus === 'rejected' ? 'text-red-600 line-through' :
+                            'text-green-700'
+                          return (
                           <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                             <div>
-                              <p className="font-medium text-green-700">+${payment.amount.toFixed(2)}</p>
+                              <p className={`font-medium ${amountColor}`}>+${payment.amount.toFixed(2)}</p>
                               <p className="text-xs text-gray-500">
                                 {new Date(payment.created_at).toLocaleDateString('es-VE')}
                                 {payment.payment_reference && ` • Ref: ${payment.payment_reference}`}
                               </p>
+                              {pStatus === 'pending' && (
+                                <p className="text-xs font-semibold text-yellow-700 mt-1">⏳ En revisión (no acreditado aún)</p>
+                              )}
+                              {pStatus === 'rejected' && (
+                                <p className="text-xs font-semibold text-red-700 mt-1">❌ Rechazado (no acreditado)</p>
+                              )}
                             </div>
-                            <Badge className="bg-green-100 text-green-800 text-xs">
-                              {payment.payment_method === 'pago_movil' && '📱 Pago Móvil'}
-                              {payment.payment_method === 'binance' && '🪙 Binance'}
-                              {payment.payment_method === 'zelle' && '💵 Zelle'}
-                              {payment.payment_method === 'cash' && '💰 Efectivo'}
-                              {payment.payment_method === 'otro' && '📦 Otro'}
+                            <Badge className={
+                              pStatus === 'pending' ? 'bg-yellow-100 text-yellow-800 text-xs' :
+                              pStatus === 'rejected' ? 'bg-red-100 text-red-800 text-xs' :
+                              'bg-green-100 text-green-800 text-xs'
+                            }>
+                              {pStatus === 'pending' && '⏳ En revisión'}
+                              {pStatus === 'rejected' && '❌ Rechazado'}
+                              {pStatus === 'approved' && (
+                                <>
+                                  {payment.payment_method === 'pago_movil' && '📱 Pago Móvil'}
+                                  {payment.payment_method === 'binance' && '🪙 Binance'}
+                                  {payment.payment_method === 'zelle' && '💵 Zelle'}
+                                  {payment.payment_method === 'cash' && '💰 Efectivo'}
+                                  {payment.payment_method === 'otro' && '📦 Otro'}
+                                </>
+                              )}
                             </Badge>
                           </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   )}
