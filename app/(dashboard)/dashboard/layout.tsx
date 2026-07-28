@@ -492,13 +492,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 ? 'Tu plan fue archivado por vencimiento. Renueva para reactivar tu tienda.'
                 : '⚠️ Tu plan venció. Renueva ahora para no perder tus funciones.'}
             </div>
-            <Link href="/dashboard/subscription">
+ <Link href="/dashboard/subscription">
               <Button size="sm" className="bg-white text-gray-900 hover:bg-gray-100 shrink-0">
                 Renovar ahora
               </Button>
             </Link>
           </div>
         )}
+
+        {/* Page Content */}
+        <main className="p-4 lg:p-8">
+          {children}
+        </main>
       </div>
     </div>
   )
