@@ -219,6 +219,17 @@ export default function CheckoutPage() {
     }
   }
 
+  function getPaymentTitle(type: string) {
+    switch (type) {
+      case 'pago_movil': return 'Pago Móvil'
+      case 'binance': return 'Binance Pay'
+      case 'zelle': return 'Zelle'
+      case 'paypal': return 'PayPal'
+      case 'cash': return 'Efectivo'
+      default: return 'Pago'
+    }
+  }
+
   function getPaymentIcon(type: string) {
     switch (type) {
       case 'pago_movil': return <Smartphone className="w-5 h-5" />
@@ -530,13 +541,14 @@ export default function CheckoutPage() {
                         <div style={{ color: primaryColor }}>
                           {getPaymentIcon(method.type)}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm sm:text-base">{method.name}</p>
+                         <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm sm:text-base">
+                            {method.name || getPaymentTitle(method.type)}
+                          </p>
                           <p className="text-xs sm:text-sm text-gray-600 truncate">
-                            {method.type === 'pago_movil' && `${method.details.banco} - ${method.details.telefono}`}
-                            {method.type === 'binance' && `ID: ${method.details.binance_id}`}
-                            {method.type === 'zelle' && method.details.email}
-                            {method.type === 'paypal' && method.details.email}
+                            {method.type === 'pago_movil' && `${method.details?.banco || ''} - ${method.details?.telefono || ''}`.replace(/^ - $/, '')}
+                            {method.type === 'binance' && `ID: ${method.details?.binance_id || ''}`}
+                            {(method.type === 'zelle' || method.type === 'paypal') && (method.details?.email || '')}
                             {method.type === 'cash' && 'Pagas al recibir'}
                           </p>
                         </div>
