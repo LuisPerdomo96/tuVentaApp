@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Plus, Trash2, Save, ArrowLeft } from 'lucide-react'
+import { Plus, Trash2, Save, ArrowLeft, Smartphone, Banknote, CreditCard, Copy, CheckCircle, ChevronDown } from
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -17,10 +17,12 @@ export default function PaymentsPage() {
   const [saving, setSaving] = useState(false)
   const [exchangeRate, setExchangeRate] = useState('36.50')
   const [paymentMethods, setPaymentMethods] = useState<any[]>([])
-  const [newMethod, setNewMethod] = useState<any>({
+   const [newMethod, setNewMethod] = useState<any>({
     type: 'pago_movil',
     details: { banco: '', telefono: '', cedula: '' }
   })
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   useEffect(() => {
     loadData()
@@ -101,12 +103,56 @@ export default function PaymentsPage() {
     )
   }
 
-  const methodLabels: any = {
-    pago_movil: ' Pago Móvil',
-    binance: ' Binance Pay',
-    zelle: ' Zelle',
-    paypal: '️ PayPal',
-    cash: '💰 Efectivo'
+  // Títulos LIMPIOS (sin los espacios/emojis pegados que había antes)
+  const methodTitle: any = {
+    pago_movil: 'Pago Móvil',
+    binance: 'Binance Pay',
+    zelle: 'Zelle',
+    paypal: 'PayPal',
+    cash: 'Efectivo',
+  }
+
+  // Resumen corto que va bajo el título (los datos completos van al expandir)
+  function methodSummary(m: any): string {
+    if (m.type === 'pago_movil') return `${m.details?.banco || ''} - ${m.details?.telefono || ''}`.replace(/^ - $/, '')
+    if (m.type === 'binance') return `ID: ${m.details?.binance_id || ''}`
+    if (m.type === 'zelle' || m.type === 'paypal') return m.details?.email || ''
+    if (m.type === 'cash') return 'Pago en efectivo al recibir'
+    return ''
+  }
+
+  function MethodIcon({ type }: { type: string }) {
+    if (type === 'pago_movil') return <Smartphone className="w-5 h-5" />
+    if (type === 'binance') return <span className="text-lg leading-none">🟡</span>
+    if (type === 'zelle') return <span className="text-lg leading-none">💵</span>
+    if (type === 'paypal') return <span className="text-lg leading-none">🅿️</span>
+    if (type === 'cash') return <Banknote className="w-5 h-5" />
+    return <CreditCard className="w-5 h-5" />
+  }
+
+  // Copia los datos del método expandido (con fallback para móviles viejos)
+  async function copyMethodData(m: any) {
+    let text = `📋 ${methodTitle[m.type] || m.type}\n\n`
+    if (m.type === 'pago_movil') {
+      text += `Banco: ${m.details?.banco || ''}\nTeléfono: ${m.details?.telefono || ''}\nCédula: ${m.details?.cedula || ''}\n`
+    } else if (m.type === 'binance') {
+      text += `Binance Pay ID: ${m.details?.binance_id || ''}\n`
+    } else if (m.type === 'zelle' || m.type === 'paypal') {
+      text += `Email: ${m.details?.email || ''}\n`
+    } else if (m.type === 'cash') {
+      text += `Pago en efectivo al recibir\n`
+    }
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      const ta = document.createElement('textarea')
+      ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-999999px'
+      document.body.appendChild(ta); ta.select()
+      try { document.execCommand('copy') } catch {}
+      document.body.removeChild(ta)
+    }
+    setCopiedId(m.id)
+    setTimeout(() => setCopiedId((cur) => (cur === m.id ? null : cur)), 1800)
   }
 
   return (
@@ -165,28 +211,77 @@ export default function PaymentsPage() {
               </p>
             ) : (
               <div className="space-y-3">
-                {paymentMethods.map(method => (
-                  <div key={method.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium">{methodLabels[method.type]}</p>
-                      <p className="text-sm text-gray-600">
-                        {method.type === 'pago_movil' && `${method.details.banco} - ${method.details.telefono}`}
-                        {method.type === 'binance' && `ID: ${method.details.binance_id}`}
-                        {method.type === 'zelle' && method.details.email}
-                        {method.type === 'paypal' && method.details.email}
-                        {method.type === 'cash' && 'Pago en efectivo al recibir'}
-                      </p>
+                {paymentMethods.map(method => {
+                  const open = expandedId === method.id
+                  return (
+                  <div
+                    key={method.id}
+                    className={`rounded-xl border-2 transition-all ${open ? 'border-orange-400 bg-orange-50/40 shadow-sm' : 'border-gray-200 bg-gray-50 hover:border-orange-300 hover:shadow-sm'}`}
+                  >
+                    <div className="flex items-center justify-between gap-2 p-3">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedId(open ? null : method.id)}
+                        className="flex-1 flex items-center gap-3 text-left min-w-0"
+                      >
+                        <span className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center ${open ? 'bg-orange-500 text-white' : 'bg-white text-orange-500 border border-gray-200'} transition-colors`}>
+                          <MethodIcon type={method.type} />
+                        </span>
+                        <span className="flex-1 min-w-0">
+                          <span className="block font-semibold text-gray-900 text-base leading-tight">
+                            {methodTitle[method.type] || method.type}
+                          </span>
+                          <span className="block text-sm text-gray-500 truncate">{methodSummary(method)}</span>
+                        </span>
+                        <ChevronDown className={`w-5 h-5 text-gray-400 shrink-0 transition-transform duration-300 ${open ? 'rotate-180 text-orange-500' : ''}`} />
+                      </button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => { e.stopPropagation(); deleteMethod(method.id) }}
+                        className="text-red-600 shrink-0"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => deleteMethod(method.id)}
-                      className="text-red-600"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+
+                    {/* Panel de datos: se despliega suave al tocar la tarjeta */}
+                    <div className={`grid transition-all duration-300 ease-out ${open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                      <div className="overflow-hidden">
+                        <div className="px-3 pb-3 space-y-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-xs font-bold uppercase tracking-wide text-orange-600">Datos del método</p>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); copyMethodData(method) }}
+                              className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1 transition-colors ${copiedId === method.id ? 'bg-green-500 text-white' : 'bg-orange-500 text-white hover:bg-orange-600'}`}
+                            >
+                              {copiedId === method.id ? <CheckCircle className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                              {copiedId === method.id ? 'Copiado' : 'Copiar'}
+                            </button>
+                          </div>
+                          {method.type === 'pago_movil' && (
+                            <>
+                              <div className="flex justify-between p-2 bg-white rounded-lg border border-gray-100"><span className="text-sm text-gray-600">Banco</span><span className="text-sm font-semibold text-gray-900 break-all text-right">{method.details?.banco}</span></div>
+                              <div className="flex justify-between p-2 bg-white rounded-lg border border-gray-100"><span className="text-sm text-gray-600">Teléfono</span><span className="text-sm font-semibold text-gray-900 break-all text-right">{method.details?.telefono}</span></div>
+                              <div className="flex justify-between p-2 bg-white rounded-lg border border-gray-100"><span className="text-sm text-gray-600">Cédula / RIF</span><span className="text-sm font-semibold text-gray-900 break-all text-right">{method.details?.cedula}</span></div>
+                            </>
+                          )}
+                          {method.type === 'binance' && (
+                            <div className="flex justify-between p-2 bg-white rounded-lg border border-gray-100"><span className="text-sm text-gray-600">Binance Pay ID</span><span className="text-sm font-semibold text-gray-900 break-all text-right">{method.details?.binance_id}</span></div>
+                          )}
+                          {(method.type === 'zelle' || method.type === 'paypal') && (
+                            <div className="flex justify-between p-2 bg-white rounded-lg border border-gray-100"><span className="text-sm text-gray-600">Email</span><span className="text-sm font-semibold text-gray-900 break-all text-right">{method.details?.email}</span></div>
+                          )}
+                          {method.type === 'cash' && (
+                            <div className="p-2 bg-white rounded-lg border border-gray-100 text-sm text-gray-700">💰 El cliente paga en efectivo al recibir el pedido.</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </CardContent>
@@ -208,8 +303,8 @@ export default function PaymentsPage() {
                 className="w-full px-3 py-2 border rounded-lg mt-1"
               >
                 <option value="pago_movil">📱 Pago Móvil</option>
-                <option value="binance">🪙 Binance Pay</option>
-                <option value="zelle"> Zelle</option>
+                <option value="binance">🟡 Binance Pay</option>
+                <option value="zelle">💵 Zelle</option>
                 <option value="paypal">🅿️ PayPal</option>
                 <option value="cash">💰 Efectivo</option>
               </select>
