@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
-  Crown, CheckCircle, XCircle, Loader2, ShieldCheck, Store, Clock, AlertTriangle, Building2
+  Crown, CheckCircle, XCircle, Loader2, ShieldCheck, Store, Clock, AlertTriangle, Building2, Settings
 } from 'lucide-react'
+import Link from 'next/link'
 import { adminApproveEvent, adminRejectEvent } from './actions'
 
 function planBadge(plan: string) {
@@ -79,9 +80,19 @@ export function AdminPanel({ initialPending, initialCompanies, adminEmail }: {
                 <p className="text-sm text-white/80">Gestión de planes y cobros del SaaS</p>
               </div>
             </div>
-            <Badge className="bg-white/20 text-white border-0 gap-1">
-              <Crown className="w-3 h-3" /> {adminEmail}
-            </Badge>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link
+                href="/admin/billing"
+                title="Configuración de cobro del SaaS (cuentas, QR y tasa)"
+                className="px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white text-sm font-medium flex items-center gap-2 transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                <span className="hidden sm:inline">Config. de cobro</span>
+              </Link>
+              <Badge className="bg-white/20 text-white border-0 gap-1">
+                <Crown className="w-3 h-3" /> {adminEmail}
+              </Badge>
+            </div>
           </div>
 
           {/* Métricas en chips */}
