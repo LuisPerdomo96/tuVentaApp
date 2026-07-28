@@ -22,6 +22,7 @@ import {
   LogOut,
   Crown,
   Lock,
+  AlertTriangle,
   Menu,
   X
 } from 'lucide-react'
@@ -45,6 +46,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push('/login')
       return
     }
+
+    // Cron perezoso: recalculo el estado de MI suscripcion con el tiempo
+    // (past_due / archived) ANTES de leerla, asi el banner refleja la verdad.
+    await supabase.rpc('recompute_my_subscription')
 
     const { data: companyData } = await supabase
       .from('companies')
@@ -474,10 +479,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="p-4 lg:p-8">
-          {children}
-        </main>
+         {/* Banner de suscripcion vencida/archivada (SOLO avisa; no bloquea nada) */}
+        {company && (company.subscription_status === 'past_due' || company.subscription_status === 'archived') && (
+          <div className={`px-4 py-3 flex items-center justify-between gap-3 flex-wrap ${
+            company.subscription_status === 'archived'
+              ? 'bg-red-600 text-white'
+              : 'bg-amber-500 text-white'
+          }`}>
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <AlertTriangle className="w-5 h-5 shrink-0" />
+              {company.subscription_status === 'archived'
+                ? 'Tu plan fue archivado por vencimiento. Renueva para reactivar tu tienda.'
+                : '⚠️ Tu plan venció. Renueva ahora para no perder tus funciones.'}
+            </div>
+            <Link href="/dashboard/subscription">
+              <Button size="sm" className="bg-white text-gray-900 hover:bg-gray-100 shrink-0">
+                Renovar ahora
+              </Button>
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   )
