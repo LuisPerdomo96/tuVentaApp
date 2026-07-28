@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Plus, Trash2, Save, ArrowLeft, Smartphone, Banknote, CreditCard, Copy, CheckCircle, ChevronDown } from
+import { Plus, Trash2, Save, ArrowLeft, Smartphone, Banknote, CreditCard, Copy, CheckCircle, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -302,6 +302,7 @@ export default function PaymentsPage() {
                 }}
                 className="w-full px-3 py-2 border rounded-lg mt-1"
               >
+                
                 <option value="pago_movil">📱 Pago Móvil</option>
                 <option value="binance">🟡 Binance Pay</option>
                 <option value="zelle">💵 Zelle</option>
