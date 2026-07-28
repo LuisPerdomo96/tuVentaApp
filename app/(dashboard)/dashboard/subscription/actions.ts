@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { sendTelegramHtml, escapeHtml } from '@/lib/telegram'
 
 // Sube el comprobante al storage (bucket product-images, carpeta subscription/)
 export async function uploadSubscriptionProof(formData: FormData) {
@@ -44,8 +45,38 @@ export async function requestUpgrade(formData: FormData) {
     p_notes: notes || null,
     p_method: method || null,
   })
-  if (error) return { error: error.message }
+if (error) return { error: error.message }
   if (data && (data as any).ok === false) return { error: (data as any).error || 'No se pudo enviar la solicitud' }
+
+  // Notificar al dueño del SaaS por Telegram (best-effort; NUNCA rompe el registro del pago).
+  // Trigger único: toda solicitud de upgrade/renovación pasa por esta server action.
+  try {
+    const { data: company } = await supabase
+      .from('companies')
+      .select('name, slug, plan')
+      .eq('owner_id', user.id)
+      .single()
+
+    const planFrom = (company?.plan || 'free').toUpperCase()
+    const planTo = plan.toUpperCase()
+    const isRenewal = (data as any)?.type === 'renewal'
+    const cycleLabel = plan === 'enterprise' ? 'trimestral' : 'mensual'
+    const amountLabel = plan === 'enterprise' ? '19.99' : '4.99'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://tu-venta-app.vercel.app'
+
+    const html =
+      `🔔 <b>Nuevo pago del SaaS pendiente</b>\n` +
+      `🏪 Tienda: <b>${escapeHtml(company?.name || '?')}</b> (/${escapeHtml(company?.slug || '?')})\n` +
+      `👤 Dueño: ${escapeHtml(user.email || '?')}\n` +
+      `${isRenewal ? '🔁 Renovación' : '⬆️ Upgrade'}: ${planFrom} → <b>${planTo}</b> (${cycleLabel})\n` +
+      `💵 Monto: <b>$${amountLabel}</b>\n` +
+      (screenshotUrl ? `📎 <a href="${escapeHtml(screenshotUrl)}">Ver comprobante</a>\n` : '') +
+      `🔗 <a href="${appUrl}/admin">Aprobar en /admin</a>`
+
+    await sendTelegramHtml(html)
+  } catch (e) {
+    console.error('[notify] falló notificación SaaS', e) // no propago: el pago ya quedó registrado
+  }
 
   return { success: true, type: (data as any)?.type }
 }
