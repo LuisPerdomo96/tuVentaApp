@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Check, X, ArrowLeft, Crown, Zap, Building2, Loader2 } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   PLANS,
   getPlan,
@@ -62,9 +63,12 @@ function buildLimitations(p: PlanDef): string[] {
 }
 
 export default function PlansPage() {
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [upgrading, setUpgrading] = useState(false)
   const [company, setCompany] = useState<any>(null)
+  const [supportWhatsapp, setSupportWhatsapp] = useState<string>('')
+  const [supportEmail, setSupportEmail] = useState<string>('')
 
   useEffect(() => {
     loadCompany()
@@ -81,29 +85,35 @@ export default function PlansPage() {
       .eq('owner_id', user.id)
       .single()
 
-    if (companyData) setCompany(companyData)
+ if (companyData) setCompany(companyData)
+
+    // Soporte del SaaS (para el link "Contáctanos"): lectura abierta a authenticated
+    const { data: saas } = await supabase
+      .from('saas_settings')
+      .select('support_whatsapp, support_email')
+      .limit(1)
+      .maybeSingle()
+    if (saas) {
+      setSupportWhatsapp(saas.support_whatsapp || '')
+      setSupportEmail(saas.support_email || '')
+    }
+
     setLoading(false)
   }
 
-  async function handleUpgrade(planId: string) {
-    if (planId === company.plan) {
-      alert('Ya tienes este plan')
-      return
-    }
-    if (!confirm(`¿Confirmar cambio al plan ${planId.toUpperCase()}?`)) return
-
+// DOWNGRADE a Free: inmediato (no cobra ni se aprueba; el servidor resetea cosmética).
+  // Los UPGRADES a plan pago YA NO pasan por acá: van a /subscription (comprobante + aprobación).
+  async function handleDowngrade() {
+    if (!confirm('¿Volver al plan Gratuito? Perderás las funciones de tu plan actual.')) return
     setUpgrading(true)
     const form = new FormData()
-    form.append('plan', planId)
-
-    // El cambio de plan ahora pasa por el SERVIDOR (valida dueño + siembra plantillas)
+    form.append('plan', 'free')
     const result = await upgradePlan(form)
     setUpgrading(false)
-
     if (result.error) {
       alert('❌ ' + result.error)
     } else {
-      alert(`✅ Plan actualizado a ${planId.toUpperCase()}`)
+      alert('✅ Plan cambiado a Gratuito')
       loadCompany()
     }
   }
@@ -158,6 +168,9 @@ export default function PlansPage() {
           {planList.map((plan) => {
             const PlanIcon = META[plan.id].icon
             const isCurrentPlan = company?.plan === plan.id
+            const isPaidCurrent = company?.plan === 'pro' || company?.plan === 'enterprise'
+            const isUpgrade = !isCurrentPlan && plan.id !== 'free'    // => /subscription?plan=x
+            const isDowngrade = !isCurrentPlan && plan.id === 'free'  // => downgrade inmediato
             const features = buildFeatures(plan)
             const limitations = buildLimitations(plan)
 
@@ -212,19 +225,34 @@ export default function PlansPage() {
                     </ul>
                   )}
 
-                  <Button
-                    className={`w-full ${
-                      isCurrentPlan
-                        ? 'bg-gray-300 cursor-not-allowed'
-                        : plan.popular
-                          ? 'bg-orange-500 hover:bg-orange-600'
-                          : 'bg-gray-900 hover:bg-gray-800'
-                    }`}
-                    disabled={isCurrentPlan || upgrading}
-                    onClick={() => handleUpgrade(plan.id)}
-                  >
-                    {isCurrentPlan ? 'Plan Actual' : upgrading ? 'Procesando...' : `Elegir ${plan.name}`}
-                  </Button>
+
+                  {isCurrentPlan && isPaidCurrent ? (
+                    <Button
+                      className="w-full bg-gradient-to-r from-violet-500 to-purple-600 hover:opacity-90 text-white"
+                      onClick={() => router.push('/dashboard/subscription')}
+                    >
+                      Suscripción
+                    </Button>
+                  ) : isCurrentPlan ? (
+                    <Button className="w-full bg-gray-300 cursor-not-allowed" disabled>
+                      Plan Actual
+                    </Button>
+                  ) : isUpgrade ? (
+                    <Button
+                      className={`w-full ${plan.popular ? 'bg-orange-500 hover:bg-orange-600' : 'bg-gray-900 hover:bg-gray-800'}`}
+                      onClick={() => router.push(`/dashboard/subscription?plan=${plan.id}`)}
+                    >
+                      Elegir {plan.name}
+                    </Button>
+                  ) : (
+                    <Button
+                      className="w-full bg-gray-900 hover:bg-gray-800"
+                      disabled={upgrading}
+                      onClick={() => handleDowngrade()}
+                    >
+                      {upgrading ? 'Procesando...' : 'Elegir Gratuito'}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             )
@@ -232,10 +260,22 @@ export default function PlansPage() {
         </div>
 
         <div className="mt-8 text-center text-sm text-gray-600">
-          <p>Los precios son en USD. Puedes cancelar en cualquier momento.</p>
-          <p className="mt-2">
+  <p className="mt-2">
             ¿Necesitas ayuda para elegir?{' '}
-            <Link href="/dashboard/settings" className="text-orange-600 underline">Contáctanos</Link>
+            {supportWhatsapp ? (
+              <a
+                href={`https://wa.me/${supportWhatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent('Hola, necesito ayuda para elegir un plan.')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-orange-600 underline"
+              >
+                Contáctanos
+              </a>
+            ) : supportEmail ? (
+              <a href={`mailto:${supportEmail}`} className="text-orange-600 underline">Contáctanos</a>
+            ) : (
+              <span className="text-gray-400">Contáctanos</span>
+            )}
           </p>
         </div>
       </main>
