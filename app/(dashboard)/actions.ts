@@ -168,8 +168,17 @@ export async function upgradePlan(formData: FormData) {
     .select('id, plan, type')
     .eq('owner_id', user.id)
     .single()
-  if (!company) return { error: 'Empresa no encontrada' }
+ if (!company) return { error: 'Empresa no encontrada' }
   if (company.plan === plan.id) return { error: 'Ya tienes este plan' }
+
+  // C2c-2b: upgradePlan SOLO permite bajar a Free (downgrade).
+  // Cualquier cambio a un plan de pago (Pro/Enterprise) debe pedirse desde
+  // /subscription (comprobante + aprobación del admin en /admin). Así "subir
+  // de plan" tiene un único camino en todo el sistema; esta server action ya
+  // no puede activar un plan pago, ni siquiera invocada directo.
+  if (plan.id !== 'free') {
+    return { error: 'Los cambios a un plan de pago se solicitan desde "Mi Suscripción" (comprobante + aprobación).' }
+  }
 
   // Vencimiento según ciclo (free = sin vencimiento)
   const expiresAt =
