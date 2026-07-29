@@ -15,7 +15,8 @@ import {
   Camera,
   Search,
   Package,
-  ShoppingBag
+  ShoppingBag,
+  Lock
 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -103,6 +104,9 @@ export default function PublicCatalogPage() {
   async function loadCatalog() {
     const supabase = createClient()
 
+    // Cron perezoso del catalogo publico: recalculo el estado de la empresa
+    // (archived/past_due) con el tiempo, asi el congelamiento se refleja aunque
+    // el dueno no abra su panel. Solo actualiza un campo derivado (seguro).
     const { data: companyData } = await supabase
       .from('companies')
       .select('*')
@@ -238,12 +242,43 @@ export default function PublicCatalogPage() {
     )
   }
 
-  if (!company) {
+ if (!company) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Catálogo no encontrado</h1>
           <p className="text-gray-600">La empresa que buscas no existe o fue desactivada.</p>
+        </div>
+      </div>
+    )
+  }
+
+  // C3b: tienda ARCHIVADA por vencimiento (30d) => catalogo publico "fuera de servicio".
+  // NO borra nada: productos, pedidos y datos quedan intactos; el dueno la reactiva
+  // renovando su plan desde su panel (banner rojo en /dashboard + link de abajo).
+  if (company.subscription_status === 'archived') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="text-center max-w-md">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-orange-100 flex items-center justify-center animate-pulse">
+            <Lock className="w-10 h-10 text-orange-500" />
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">
+            Tienda temporalmente fuera de servicio
+          </h1>
+          <p className="text-gray-600 mb-6">
+            Esta tienda no está disponible en este momento. Vuelve a intentarlo más tarde.
+          </p>
+          <div className="pt-4 border-t border-gray-200">
+            <p className="text-sm text-gray-500 mb-3">
+              ¿Eres el dueño? Renueva tu plan para reactivarla.
+            </p>
+            <Link href="/dashboard">
+              <Button className="bg-orange-500 hover:bg-orange-600 text-white">
+                Ir a mi panel
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     )
