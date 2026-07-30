@@ -320,6 +320,17 @@ ${itemsText}
 
         {/* ✅ Botones de Acción - WhatsApp Responsive */}
         <div className="space-y-3">
+   {/* Nota: le dice al cliente que envíe el mensaje por WA para notificar al dueño */}
+          <div
+            className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-xs sm:text-sm"
+            style={{ backgroundColor: `${primaryColor}12`, color: primaryColor }}
+          >
+            <span className="shrink-0 text-base sm:text-lg leading-none mt-0.5">📲</span>
+            <p className="leading-snug">
+              Al tocar el botón se abre <strong>WhatsApp</strong> con tu pedido escrito: <strong>envíalo</strong> para que el negocio lo reciba al instante y empiece a prepararlo.
+            </p>
+          </div>
+
           <a href={getWhatsAppLink()} target="_blank" rel="noopener noreferrer" className="block">
             <Button 
               className="w-full h-12 sm:h-14 text-sm sm:text-lg gap-2 sm:gap-3 font-semibold shadow-lg hover:shadow-xl transition-all"
@@ -334,7 +345,7 @@ ${itemsText}
             <Button 
               variant="outline" 
               onClick={copyOrderDetails}
-              className="gap-1 sm:gap-2 text-xs sm:text-sm h-10 sm:h-12"
+              className="gap-1 sm:gap-2 text-xs sm:text-Ssm h-10 sm:h-12"
             >
               {copySuccess ? (
                 <><CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" /> Copiado</>
