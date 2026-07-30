@@ -172,19 +172,30 @@ export default function TrackOrderPage() {
 
     const cleanId = searchId.replace('#', '').replace(/-/g, '').replace(/\s/g, '').trim().toUpperCase()
 
-    const { data: allOrders, error } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        order_items (
-          product_name,
-          quantity,
-          price_usd,
-          notes
-        )
-      `)
-      .order('created_at', { ascending: false })
-      .limit(100)
+// 🔒 Resolver company_id de forma robusta: si entró por ?id= y loadCompany
+    // aún no terminó (race del setTimeout de 100ms), lo traemos acá para no romper el track.
+    let companyId = company?.id
+    if (!companyId) {
+      const { data: c } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('slug', slug)
+        .single()
+      companyId = c?.id
+    }
+    if (!companyId) {
+      console.error('❌ Empresa no encontrada para el slug:', slug)
+      setOrder(null)
+      setLoading(false)
+      return
+    }
+
+    // 🔒 RPC SECURITY DEFINER: devuelve SOLO pedidos de ESTA empresa que matcheen el
+    // prefijo. Antes el select directo traía los 100 más recientes de TODAS las tiendas.
+    const { data: allOrders, error } = await supabase.rpc('get_public_orders', {
+      p_company_id: companyId,
+      p_search_term: cleanId,
+    })
 
     if (error) {
       console.error('❌ Error:', error)
@@ -193,10 +204,8 @@ export default function TrackOrderPage() {
       return
     }
 
-    const foundOrder = allOrders?.find(o => {
-      const orderIdClean = o.id.replace(/-/g, '').toUpperCase()
-      return orderIdClean.includes(cleanId) || o.id.toUpperCase().includes(cleanId)
-    })
+    // La RPC ya viene filtrada por prefijo y ordenada por fecha desc → el primero es el match.
+    const foundOrder = (allOrders as any[])?.[0] ?? null
 
     if (foundOrder) {
       setOrder({
@@ -215,13 +224,12 @@ export default function TrackOrderPage() {
 
   async function loadPaymentHistory(orderId: string) {
     const supabase = createClient()
-    const { data } = await supabase
-      .from('order_payments')
-      .select('*')
-      .eq('order_id', orderId)
-      .order('created_at', { ascending: false })
+    // 🔒 RPC: pagos de UN pedido (ya no select directo sobre order_payments).
+    const { data } = await supabase.rpc('get_public_order_payments', {
+      p_order_id: orderId,
+    })
 
-    if (data) setPaymentHistory(data)
+    if (data) setPaymentHistory(data as any[])
   }
 
   async function handleCaptureUpload(e: React.ChangeEvent<HTMLInputElement>) {
