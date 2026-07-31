@@ -50,31 +50,31 @@ export default function ConfirmationPage() {
   async function loadOrderDetails(id: string) {
     const supabase = createClient()
 
-    const { data: orderData } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        order_items (
-          product_name,
-          quantity,
-          price_usd,
-          notes
-        )
-      `)
-      .eq('id', id)
+    // 🔒 1) Resolver la empresa por slug (anon puede: companies_select_public, is_active=true).
+    //    La necesitamos ANTES de llamar a la RPC (que exige p_company_id) y para pintar
+    //    colores/tasa/WhatsApp. De paso nos ahorramos el segundo fetch por company_id.
+    const { data: companyData } = await supabase
+      .from('companies')
+      .select('*')
+      .eq('slug', slug)
       .single()
 
-    if (orderData) {
-      setOrder(orderData)
+    if (companyData) setCompany(companyData)
 
-      const { data: companyData } = await supabase
-        .from('companies')
-        .select('*')
-        .eq('id', orderData.company_id)
-        .single()
-      
-      if (companyData) setCompany(companyData)
-    }
+    // 🔒 2) Limpiar el id: la URL trae el UUID con guiones y la RPC compara contra el id
+    //    SIN guiones (igual que el track-order). Crudo no matchearía → "no encontrado".
+    const cleanId = id.replace(/-/g, '').replace(/\s/g, '').trim().toUpperCase()
+
+    // 🔒 3) RPC SECURITY DEFINER acotada a ESTA empresa: devuelve el pedido + order_items
+    //    (jsonb) + notes + payment_screenshot_url. Ya no hay select directo sobre orders.
+    const { data: rows } = await supabase.rpc('get_public_orders', {
+      p_company_id: companyData?.id,
+      p_search_term: cleanId,
+    })
+
+    const orderData = (rows as any[])?.[0] ?? null
+    if (orderData) setOrder(orderData) // orderData.order_items ya viene como jsonb
+
     setLoading(false)
   }
 
