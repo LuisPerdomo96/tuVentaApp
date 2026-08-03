@@ -172,7 +172,7 @@ export default function NewProductPage() {
               </div>
               <p className="text-xs text-gray-500">
                 {images.length}/{maxImages === Infinity ? '∞' : maxImages} imágenes subidas
-                {images.length === maxImages && (
+                {images.length >= maxImages && (
                   <span className="ml-2 text-orange-600">
                     (límite del plan {plan.name})
                   </span>
