@@ -92,6 +92,9 @@ export const checkCategoryLimit = (plan: PlanDef, current: number) =>
 export const checkQrLimit = (plan: PlanDef, current: number) =>
   current >= plan.maxQrCodes ? limitMessage(plan, 'códigos QR', plan.maxQrCodes) : null
 
+export const checkPaymentMethodsLimit = (plan: PlanDef, current: number) =>
+  current >= plan.maxPaymentMethods ? limitMessage(plan, 'métodos de pago', plan.maxPaymentMethods) : null
+
 export const checkImagesPerProduct = (plan: PlanDef, current: number) =>
   current > plan.maxImagesPerProduct
     ? `Tu plan ${plan.name} permite hasta ${plan.maxImagesPerProduct} imagen(es) por producto.`

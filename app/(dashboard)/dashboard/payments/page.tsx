@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Plus, Trash2, Save, ArrowLeft, Smartphone, Banknote, CreditCard, Copy, CheckCircle, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { getPlan } from '@/lib/plans'
+import { createPaymentMethod } from './actions'
 
 export default function PaymentsPage() {
   const router = useRouter()
@@ -23,6 +25,7 @@ export default function PaymentsPage() {
   })
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [planId, setPlanId] = useState<string>('free')
 
   useEffect(() => {
     loadData()
@@ -35,12 +38,13 @@ export default function PaymentsPage() {
 
     const { data: company } = await supabase
       .from('companies')
-      .select('id, exchange_rate')
+ .select('id, exchange_rate, plan')
       .eq('owner_id', user.id)
       .single()
 
     if (company) {
       setCompanyId(company.id)
+      setPlanId(company.plan || 'free')
       setExchangeRate(company.exchange_rate?.toString() || '36.50')
 
       const { data: methods } = await supabase
@@ -64,21 +68,19 @@ export default function PaymentsPage() {
     alert('Tasa actualizada')
   }
 
-  async function addPaymentMethod() {
+async function addPaymentMethod() {
     if (!companyId) return
-    const supabase = createClient()
+    setSaving(true)
 
-    const { error } = await supabase
-      .from('payment_methods')
-      .insert({
-        company_id: companyId,
-        type: newMethod.type,
-        details: newMethod.details,
-        is_active: true,
-      })
+    const form = new FormData()
+    form.append('type', newMethod.type)
+    form.append('details', JSON.stringify(newMethod.details))
 
-    if (error) {
-      alert('Error: ' + error.message)
+    const result = await createPaymentMethod(form)
+    setSaving(false)
+
+    if (result.error) {
+      alert(result.error)
     } else {
       setNewMethod({ type: 'pago_movil', details: { banco: '', telefono: '', cedula: '' } })
       loadData()
@@ -94,6 +96,10 @@ export default function PaymentsPage() {
       .eq('id', id)
     loadData()
   }
+
+  const plan = getPlan(planId)
+  const maxMethods = plan.maxPaymentMethods
+  const atLimit = paymentMethods.length >= maxMethods
 
   if (loading) {
     return (
@@ -287,7 +293,13 @@ export default function PaymentsPage() {
           </CardContent>
         </Card>
 
-        {/* Agregar Nuevo Método */}
+{/* Agregar Nuevo Método */}
+        {atLimit && (
+          <p className="text-xs text-orange-600 text-center">
+            (límite del plan {plan.name} alcanzado)
+          </p>
+        )}
+        {atLimit ? null : (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Agregar Método de Pago</CardTitle>
@@ -378,12 +390,13 @@ export default function PaymentsPage() {
               </div>
             )}
 
-            <Button onClick={addPaymentMethod} className="w-full">
+            <Button onClick={addPaymentMethod} className="w-full" disabled={saving}>
               <Plus className="w-4 h-4 mr-2" />
-              Agregar Método
+              {saving ? 'Guardando...' : 'Agregar Método'}
             </Button>
           </CardContent>
         </Card>
+        )}
       </main>
     </div>
   )
