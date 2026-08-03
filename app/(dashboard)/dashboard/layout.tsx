@@ -267,11 +267,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { href: '/dashboard', label: 'Panel', icon: LayoutDashboard },
         { href: '/dashboard/products', label: 'Productos', icon: Package },
         { href: '/dashboard/products/categories', label: 'Categorías', icon: FolderOpen },
-        { href: '/dashboard/delivery-settings', label: 'Config. de Entrega', icon: Bike },
         { href: '/dashboard/settings', label: 'Config. de Empresa', icon: Settings },
+        { href: '/dashboard/payments', label: 'Métodos de Pago', icon: CreditCard },
+        { href: '/dashboard/delivery-settings', label: 'Config. de Entrega', icon: Bike },
         { href: '/dashboard/qr', label: 'Códigos QR', icon: QrCode },
         { href: '/dashboard/orders', label: 'Pedidos', icon: ShoppingCart, badge: pendingOrdersCount > 0 ? pendingOrdersCount : undefined },
-        { href: '/dashboard/payments', label: 'Métodos de Pago', icon: CreditCard },
       ]
     },
     {
