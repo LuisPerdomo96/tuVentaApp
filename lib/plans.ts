@@ -93,7 +93,7 @@ export const checkQrLimit = (plan: PlanDef, current: number) =>
   current >= plan.maxQrCodes ? limitMessage(plan, 'códigos QR', plan.maxQrCodes) : null
 
 export const checkImagesPerProduct = (plan: PlanDef, current: number) =>
-  current = plan.maxImagesPerProduct
+  current > plan.maxImagesPerProduct
     ? `Tu plan ${plan.name} permite hasta ${plan.maxImagesPerProduct} imagen(es) por producto.`
     : null
 
