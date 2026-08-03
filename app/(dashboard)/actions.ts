@@ -78,13 +78,14 @@ export async function createCompany(formData: FormData) {
   // 7. Crear la empresa
   const { data: company, error: companyError } = await supabase
     .from('companies')
-    .insert({
+  .insert({
       owner_id: user.id,
       name: name.trim(),
       slug,
       type,
       description: description?.trim() || null,
       plan: 'free',
+      font_family: 'sans',   // explícito: no depender del default roto de la columna
     })
     .select()
     .single()

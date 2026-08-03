@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeft, Upload, X, Trash2, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
+import { getPlan } from '@/lib/plans' // <-- 1. IMPORTAR getPlan
 
 export default function EditProductPage() {
   const router = useRouter()
@@ -21,6 +22,7 @@ export default function EditProductPage() {
   const [saving, setSaving] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [images, setImages] = useState<string[]>([])
+  const [planId, setPlanId] = useState<string>('free') // <-- 2. ESTADO DEL PLAN
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -36,6 +38,19 @@ export default function EditProductPage() {
 
   async function loadData() {
     const supabase = createClient()
+
+    // <-- 3. OBTENER EL PLAN DE LA EMPRESA
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { data: company } = await supabase
+        .from('companies')
+        .select('plan')
+        .eq('owner_id', user.id)
+        .single()
+      if (company) {
+        setPlanId(company.plan || 'free')
+      }
+    }
 
     // Cargar categorías
     const { data: categoriesData } = await supabase
@@ -131,9 +146,12 @@ export default function EditProductPage() {
     )
   }
 
+  // <-- 4. CALCULAR LÍMITE DE IMÁGENES SEGÚN EL PLAN
+  const plan = getPlan(planId)
+  const maxImages = plan.maxImagesPerProduct
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -183,7 +201,9 @@ export default function EditProductPage() {
                     </button>
                   </div>
                 ))}
-                {images.length < 5 && (
+                
+                {/* <-- 5. USAR maxImages EN LUGAR DEL NÚMERO FIJO 5 */}
+                {images.length < maxImages && (
                   <label className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-orange-500 transition-colors">
                     <Upload className="w-8 h-8 text-gray-400 mb-2" />
                     <span className="text-xs text-gray-600">Subir</span>
@@ -197,13 +217,20 @@ export default function EditProductPage() {
                   </label>
                 )}
               </div>
+              
+              {/* <-- 6. ACTUALIZAR TEXTO INFORMATIVO */}
               <p className="text-xs text-gray-500">
-                {images.length}/5 imágenes
+                {images.length}/{maxImages === Infinity ? '∞' : maxImages} imágenes subidas
+                {images.length >= maxImages && (
+                  <span className="ml-2 text-orange-600">
+                    (límite del plan {plan.name})
+                  </span>
+                )}
               </p>
             </CardContent>
           </Card>
 
-          {/* Información Básica */}
+          {/* Información Básica (sin cambios) */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Información Básica</CardTitle>
@@ -289,7 +316,6 @@ export default function EditProductPage() {
             </CardContent>
           </Card>
 
-          {/* Botones de Acción */}
           <div className="flex gap-3">
             <Link href="/dashboard/products" className="flex-1">
               <Button variant="outline" className="w-full">Cancelar</Button>
