@@ -73,8 +73,9 @@ export async function changeCompanyPlan(companyId: string, newPlan: string) {
 
   if (error) return { error: error.message }
 
-  // 5. Forzar recomputación del estado (active/past_due/archived)
-  await supabase.rpc('recompute_subscription_status', { p_company_id: companyId })
+  // 5. Forzar recomputación del estado (active/past_due/archived)
+  await supabase.rpc('recompute_subscription_status', { p_company_id: companyId })
 
-  return { success: true }
+  revalidatePath('/admin')
+  return { success: true }
 }

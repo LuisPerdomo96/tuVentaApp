@@ -419,7 +419,7 @@ export default function CheckoutPage() {
                 <textarea
                   value={formData.customerAddress}
                   onChange={(e) => setFormData({ ...formData, customerAddress: e.target.value })}
-                  placeholder="Calle, número, punto de referencia..."
+                  placeholder="Dirección completa, referencia, etc.(zoom,mrw)"
                   rows={3}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl mt-2 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-sm"
                   required
@@ -500,7 +500,7 @@ export default function CheckoutPage() {
               <textarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Ej: Sin cebolla, bien cocido..."
+                placeholder="Comentarios adicionales sobre tu pedido..."
                 rows={3}
                 className="w-full px-4 py-3 border border-gray-200 rounded-xl mt-2 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-sm"
               />
