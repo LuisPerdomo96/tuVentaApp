@@ -18,6 +18,7 @@ export interface PlanDef {
   maxStores: number             // hoy fijo en 1 (1 correo = 1 tienda)
   maxEmployees: number
   maxPaymentMethods: number
+  maxVariantsPerProduct: number // ← NUEVO: 0 = sin variantes (Free)
   monthlyVisits: number
   customSlug: boolean           // slug premium / dominio propio
   installments: boolean         // apartados / abonos
@@ -32,7 +33,9 @@ export const PLANS: Record<PlanId, PlanDef> = {
   free: {
     id: 'free', name: 'Gratuito', price: 0, billing: 'none',
     maxProducts: 15, maxImagesPerProduct: 1, maxCategories: 1, maxQrCodes: 1,
-    maxStores: 1, maxEmployees: 1, maxPaymentMethods: 1, monthlyVisits: 250,
+    maxStores: 1, maxEmployees: 1, maxPaymentMethods: 1,
+    maxVariantsPerProduct: 0,   // ← SIN VARIANTES
+    monthlyVisits: 250,
     customSlug: false, installments: false, showPoweredBy: true,
     advancedCustomization: false, advancedStats: false, advancedInventory: false,
     support: 'standard',
@@ -40,7 +43,9 @@ export const PLANS: Record<PlanId, PlanDef> = {
   pro: {
     id: 'pro', name: 'Pro', price: 4.99, billing: 'monthly',
     maxProducts: 100, maxImagesPerProduct: 3, maxCategories: 5, maxQrCodes: 5,
-    maxStores: 1, maxEmployees: 3, maxPaymentMethods: 4, monthlyVisits: 600,
+    maxStores: 1, maxEmployees: 3, maxPaymentMethods: 4,
+    maxVariantsPerProduct: 10,  // ← 10 variantes
+    monthlyVisits: 600,
     customSlug: true, installments: true, showPoweredBy: false,
     advancedCustomization: true, advancedStats: true, advancedInventory: true,
     support: 'priority',
@@ -48,14 +53,16 @@ export const PLANS: Record<PlanId, PlanDef> = {
   enterprise: {
     id: 'enterprise', name: 'Enterprise', price: 19.99, billing: 'quarterly', popular: true,
     maxProducts: 600, maxImagesPerProduct: 7, maxCategories: Infinity, maxQrCodes: Infinity,
-    maxStores: 1, maxEmployees: Infinity, maxPaymentMethods: Infinity, monthlyVisits: Infinity,
+    maxStores: 1, maxEmployees: Infinity, maxPaymentMethods: Infinity,
+    maxVariantsPerProduct: Infinity, // ← ILIMITADO
+    monthlyVisits: Infinity,
     customSlug: true, installments: true, showPoweredBy: false,
     advancedCustomization: true, advancedStats: true, advancedInventory: true,
     support: 'dedicated',
   },
 }
 
-// --- Helpers (los usan TODAS las pantallas; así el número vive una sola vez) ---
+// --- Helpers ---
 
 export const getPlan = (id?: string | null): PlanDef =>
   (id as PlanId) in PLANS ? PLANS[id as PlanId] : PLANS.free
@@ -75,10 +82,10 @@ export const daysForBilling = (b: Billing): number =>
 export const supportLabel = (s: SupportLevel): string =>
   s === 'priority' ? 'prioritario' : s === 'dedicated' ? 'dedicado' : 'estándar'
 
-// Regla de negocio reutilizable (la usará el enforcement del servidor después)
 export const canAddProduct = (plan: PlanDef, currentCount: number): boolean =>
   currentCount < plan.maxProducts
-// === ENFORCEMENT (server-side) — devuelven mensaje de error o null ===
+
+// === ENFORCEMENT (server-side) ===
 
 export const limitMessage = (plan: PlanDef, label: string, max: number): string =>
   `Tu plan ${plan.name} permite hasta ${formatLimit(max)} ${label}. Mejorá tu plan para agregar más.`
@@ -100,6 +107,17 @@ export const checkImagesPerProduct = (plan: PlanDef, current: number) =>
     ? `Tu plan ${plan.name} permite hasta ${plan.maxImagesPerProduct} imagen(es) por producto.`
     : null
 
+// ← NUEVO: validación de límite de variantes
+export const checkVariantsLimit = (plan: PlanDef, current: number) => {
+  if (plan.maxVariantsPerProduct === 0) {
+    return `Las variantes de producto no están disponibles en el plan ${plan.name}. Actualizá a Pro para desbloquearlas.`
+  }
+  if (current >= plan.maxVariantsPerProduct) {
+    return limitMessage(plan, 'variantes por producto', plan.maxVariantsPerProduct)
+  }
+  return null
+}
+
 export type PlanFeature =
   | 'advancedCustomization' | 'customSlug' | 'installments'
   | 'advancedStats' | 'advancedInventory'
@@ -114,10 +132,7 @@ export const featureLabel: Record<PlanFeature, string> = {
 
 export const checkFeature = (plan: PlanDef, feature: PlanFeature) =>
   plan[feature] ? null : `La función "${featureLabel[feature]}" no está incluida en el plan ${plan.name}.`
-// === Tema predeterminado de la empresa (cosmética base) ===
-// Se aplica: (a) al crear empresa, (b) al bajar a un plan sin personalización
-// avanzada (ej. Free). DEBE coincidir con el SQL de limpieza y con el
-// estado inicial del formulario de settings.
+
 export const DEFAULT_COMPANY_THEME = {
   primary_color: '#F97316',
   secondary_color: '#EAB308',
