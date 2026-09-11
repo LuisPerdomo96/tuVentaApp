@@ -1,0 +1,28 @@
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import SuscripcionesContent from '../suscripciones/suscripciones-content'
+
+export default async function SuscripcionesPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: isAdmin } = await supabase.rpc('is_super_admin')
+  if (!isAdmin) redirect('/dashboard')
+
+  const [pendingRes, paymentsRes, couponsRes, trialsRes] = await Promise.all([
+    supabase.rpc('admin_list_pending_approvals'),
+    supabase.rpc('admin_get_payment_history'),
+    supabase.rpc('admin_get_coupons'),
+    supabase.rpc('admin_get_active_trials'),
+  ])
+
+  return (
+    <SuscripcionesContent
+      initialPending={(pendingRes.data as any[]) || []}
+      payments={(paymentsRes.data as any[]) || []}
+      coupons={(couponsRes.data as any[]) || []}
+      trials={(trialsRes.data as any[]) || []}
+    />
+  )
+}

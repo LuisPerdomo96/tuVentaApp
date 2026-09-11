@@ -35,7 +35,8 @@ export async function updateSession(request: NextRequest) {
   if (
     !user &&
     (request.nextUrl.pathname.startsWith('/dashboard') ||
-      request.nextUrl.pathname.startsWith('/onboarding'))
+      request.nextUrl.pathname.startsWith('/onboarding') ||
+      request.nextUrl.pathname.startsWith('/admin')) // NUEVO: proteger /admin
   ) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
@@ -52,6 +53,30 @@ export async function updateSession(request: NextRequest) {
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
   }
+
+  // =================================================================
+  // NUEVO: Protección 2FA para rutas de Admin
+  // =================================================================
+  if (user && request.nextUrl.pathname.startsWith('/admin')) {
+    const isVerifyPage = request.nextUrl.pathname === '/admin/2fa/verify'
+    const pendingUserId = request.cookies.get('2fa_pending_user')?.value
+    const isVerified = request.cookies.get('2fa_verified')?.value === 'true'
+
+    // A) Si tiene sesión pendiente de 2FA, FORZAR a ir a la página de verificación
+    if (pendingUserId && !isVerifyPage) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/admin/2fa/verify'
+      return NextResponse.redirect(url)
+    }
+
+    // B) Si ya está verificado, no dejar que entre a la página de verificación
+    if (isVerified && isVerifyPage) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/admin'
+      return NextResponse.redirect(url)
+    }
+  }
+  // =================================================================
 
   // Si está logueado y va a /dashboard, verificar si tiene empresa
   if (user && request.nextUrl.pathname === '/dashboard') {
